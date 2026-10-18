@@ -1,0 +1,1290 @@
+<title>The Septic Tankz</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap">
+<style>
+/* Layout: one-screen DOS terminal — CRT in a plastic bezel, Telix-style status bar beneath */
+:root {
+  color-scheme: dark;
+  --desk: #15130f;
+  --bezel: #2b2620;
+  --bezel-hi: #3a342b;
+  --screen: #040404;
+  --ink: #aaaaaa;
+  --dim: #6f685c;
+  --bar: #0000aa;
+  --bar-ink: #ffffff;
+  --bar-hi: #ffff55;
+  --term: "VT323", "Courier New", monospace;
+  --c0:#000000; --c1:#0000aa; --c2:#00aa00; --c3:#00aaaa; --c4:#aa0000; --c5:#aa00aa; --c6:#aa5500; --c7:#aaaaaa;
+  --c8:#555555; --c9:#5555ff; --c10:#55ff55; --c11:#55ffff; --c12:#ff5555; --c13:#ff55ff; --c14:#ffff55; --c15:#ffffff;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--desk);
+  color: var(--ink);
+  font-family: var(--term);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px;
+  display: flex;
+}
+#app { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; max-width: 1180px; margin: 0 auto; }
+.top { display: flex; justify-content: space-between; gap: 12px; color: var(--dim); font-size: 18px; letter-spacing: .06em; text-transform: uppercase; }
+.top b { color: #c9bfa9; font-weight: normal; }
+#bezel {
+  flex: 1; min-height: 0; display: flex; padding: 14px; border-radius: 18px;
+  background: linear-gradient(180deg, var(--bezel-hi), var(--bezel));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 30px rgba(0,0,0,.5);
+}
+#crt {
+  position: relative; flex: 1; min-width: 0; min-height: 0; border-radius: 12px; overflow: hidden;
+  background: radial-gradient(ellipse at center, #0b0b0b 0%, var(--screen) 75%);
+  box-shadow: inset 0 0 40px rgba(0,0,0,.9), inset 0 0 2px rgba(255,255,255,.15);
+  cursor: text;
+}
+#scroll { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; padding: 12px; scrollbar-width: thin; scrollbar-color: #333 transparent; }
+#scr {
+  margin: 0 auto; width: max-content; max-width: 100%;
+  font-family: var(--term); font-size: 20px; line-height: 1.05;
+  white-space: pre; color: var(--c7);
+  text-shadow: 0 0 2px rgba(255,255,255,.18), 0 0 6px rgba(120,160,255,.08);
+}
+#crt::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 12px;
+  background: repeating-linear-gradient(180deg, rgba(0,0,0,.22) 0 1px, transparent 1px 3px);
+}
+.f0{color:var(--c0)}.f1{color:var(--c1)}.f2{color:var(--c2)}.f3{color:var(--c3)}.f4{color:var(--c4)}.f5{color:var(--c5)}.f6{color:var(--c6)}.f7{color:var(--c7)}
+.f8{color:var(--c8)}.f9{color:var(--c9)}.f10{color:var(--c10)}.f11{color:var(--c11)}.f12{color:var(--c12)}.f13{color:var(--c13)}.f14{color:var(--c14)}.f15{color:var(--c15)}
+.b1{background:var(--c1)}.b2{background:var(--c2)}.b3{background:var(--c3)}.b4{background:var(--c4)}.b5{background:var(--c5)}.b6{background:var(--c6)}.b7{background:var(--c7)}
+.hk { cursor: pointer; border-radius: 2px; }
+.hk .k { color: var(--c14); }
+.hk .br { color: var(--c8); }
+.hk:not(.stale):hover, .hk:not(.stale):focus-visible { background: var(--c1); outline: none; }
+.hk:not(.stale):hover .k { color: var(--c15); }
+.hk.stale { cursor: inherit; }
+.hk.stale .k { color: inherit; }
+.cur { display: inline-block; width: 1ch; color: var(--c7); animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+#kbd { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; font-size: 16px; }
+#bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0 14px; padding: 2px 10px;
+  background: var(--bar); color: var(--bar-ink); font-size: 19px; line-height: 1.3;
+}
+#bar .sep { color: #5555ff; }
+#bar .hi { color: var(--bar-hi); }
+#bar .grow { flex: 1; }
+#bar button {
+  font: inherit; color: var(--bar-ink); background: #000080; border: 0; padding: 0 8px; cursor: pointer;
+  box-shadow: inset 1px 1px 0 #5555ff, inset -1px -1px 0 #000040;
+}
+#bar button:hover, #bar button:focus-visible { background: #00aaaa; color: #000; outline: none; }
+#bar .on { color: var(--bar-hi); }
+@media (max-width: 560px) {
+  body { padding-block: 6px; }
+  #bezel { padding: 6px; border-radius: 12px; }
+  #scroll { padding: 6px; }
+  .top { font-size: 15px; }
+  #bar { font-size: 16px; gap: 0 8px; }
+  .wide { display: none; }
+}
+#keys { display: none; gap: 6px; flex-wrap: wrap; }
+@media (pointer: coarse), (max-width: 700px) { #keys:not([hidden]) { display: flex; } }
+#keys button {
+  font: inherit; font-size: 19px; color: var(--c15); background: #1d1a15; border: 1px solid #4a4235; border-radius: 4px;
+  padding: 6px 10px; min-height: 40px; cursor: pointer; flex: 1 1 auto; text-align: left;
+}
+#keys button b { color: var(--c14); font-weight: normal; margin-right: 6px; }
+#keys button:active, #keys button:focus-visible { background: var(--c1); outline: none; }
+@media (prefers-reduced-motion: reduce) { .cur { animation: none; } }
+</style>
+
+<div id="app">
+  <div class="top"><span><b>SEPTIC.FON</b> &middot; DOS terminal</span><span>tap a [key] or type</span></div>
+  <div id="bezel">
+    <div id="crt">
+      <div id="scroll"><pre id="scr" aria-live="polite"></pre></div>
+      <input id="kbd" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Terminal keyboard input">
+    </div>
+  </div>
+  <div id="keys" hidden></div>
+  <div id="bar">
+    <span id="st-mode" class="hi">OFFLINE</span><span class="sep">&#9474;</span>
+    <span class="wide">ANSI-BBS</span><span class="sep wide">&#9474;</span>
+    <span>14400 N81</span><span class="sep">&#9474;</span>
+    <span id="st-node">NODE --</span><span class="sep">&#9474;</span>
+    <span id="st-time">00:00:00</span>
+    <span class="grow"></span>
+    <button id="b-snd" type="button">SND <span class="on">ON</span></button>
+    <button id="b-hang" type="button" hidden>HANG UP</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------- config
+const BOARD = "The Septic Tankz";
+const PHONE = "1-617-555-8265";
+const PHONE_LINES = 1;            // how many callers at once (sysop: add lines here)
+const SECRET_HANDLE = "FLUSH";    // secret login → the elite side
+const SECRET_PASS = "BACKFLOW";
+const CPS = 1440;                 // 14.4k ≈ 1440 chars/sec
+const TIME_LIMIT_MIN = 60;
+const IDLE_LIMIT_MIN = 5;
+const ART = /*__ART__*/null;
+
+// ---------------------------------------------------------------- dom
+const scr = document.getElementById("scr");
+const scroll = document.getElementById("scroll");
+const crt = document.getElementById("crt");
+const kbd = document.getElementById("kbd");
+const stMode = document.getElementById("st-mode");
+const stNode = document.getElementById("st-node");
+const stTime = document.getElementById("st-time");
+const bSnd = document.getElementById("b-snd");
+const bHang = document.getElementById("b-hang");
+const keysEl = document.getElementById("keys");
+const live = document.createElement("span");
+scr.appendChild(live);
+
+// ---------------------------------------------------------------- fit 80 columns
+let charRatio = 0.5;
+function measure() {
+  const p = document.createElement("span");
+  p.style.cssText = "position:absolute;visibility:hidden;white-space:pre;font-size:100px;font-family:" + getComputedStyle(scr).fontFamily;
+  p.textContent = "M".repeat(80);
+  document.body.appendChild(p);
+  charRatio = p.getBoundingClientRect().width / 100;
+  p.remove();
+}
+function fit() {
+  const w = scroll.clientWidth - 2 * parseFloat(getComputedStyle(scroll).paddingLeft) - 2;
+  scr.style.fontSize = Math.max(6, Math.min(26, w / charRatio)).toFixed(2) + "px";
+}
+measure(); fit();
+if (document.fonts) document.fonts.load("20px VT323").then(() => { measure(); fit(); }).catch(() => {});
+new ResizeObserver(fit).observe(scroll);
+
+// ---------------------------------------------------------------- abortable session plumbing
+class Hangup extends Error {}
+const pending = new Set();   // reject fns for anything awaiting
+function track(executor) {
+  return new Promise((res, rej) => {
+    const entry = { rej };
+    pending.add(entry);
+    executor(v => { pending.delete(entry); res(v); }, e => { pending.delete(entry); rej(e); }, entry);
+  });
+}
+function sleep(ms) {
+  return track((res, rej, entry) => { const t = setTimeout(res, ms); entry.cancel = () => clearTimeout(t); });
+}
+
+// ---------------------------------------------------------------- terminal output
+let fg = 7, bg = 0, Q = [], drainers = [], running = false, fast = false, lastT = 0;
+let curNode = null, curCls = "", gen = 0;
+
+function parse(str) {
+  const ops = [];
+  let buf = "";
+  const flush = () => { if (buf) { ops.push({ text: buf, fg, bg }); buf = ""; } };
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (ch === "|" && /\d\d/.test(str.substr(i + 1, 2))) {
+      flush();
+      const n = +str.substr(i + 1, 2);
+      if (n < 16) fg = n; else if (n < 24) bg = n - 16;
+      i += 2; continue;
+    }
+    if (ch === "{" && str[i + 2] === "}" && str[i + 1] !== undefined) {
+      flush(); ops.push({ hk: str[i + 1].toUpperCase(), fg, bg }); i += 2; continue;
+    }
+    buf += ch;
+  }
+  flush();
+  return ops;
+}
+function cls() { Q.push({ cls: true }); }
+function out(str) {
+  Q.push(...parse(str));
+  if (!running) { running = true; lastT = performance.now(); requestAnimationFrame(step); }
+  return track((res, rej, entry) => drainers.push({ res, entry }));
+}
+function outNow(str) {  // immediate, no pacing (echo)
+  for (const op of parse(str)) appendOp(op);
+  scrollDown();
+}
+function appendText(text, f, b) {
+  const c = "f" + f + (b ? " b" + b : "");
+  if (curNode && curCls === c && curNode.parentNode && curNode.parentNode.nextSibling === live) {
+    curNode.appendData(text);
+  } else {
+    const s = document.createElement("span");
+    s.className = c;
+    curNode = document.createTextNode(text);
+    s.appendChild(curNode);
+    scr.insertBefore(s, live);
+    curCls = c;
+  }
+}
+function appendOp(op) {
+  if (op.cls) { while (scr.firstChild !== live) scr.removeChild(scr.firstChild); curNode = null; return 0; }
+  if (op.el) { scr.insertBefore(op.el, live); curNode = null; return 1; }
+  if (op.hk) {
+    const s = document.createElement("span");
+    s.className = "hk";
+    s.dataset.k = op.hk; s.dataset.g = gen;
+    s.setAttribute("role", "button");
+    s.innerHTML = '<span class="br">[</span><span class="k"></span><span class="br">]</span>';
+    s.querySelector(".k").textContent = op.hk;
+    scr.insertBefore(s, live); curNode = null;
+    return 3;
+  }
+  appendText(op.text, op.fg, op.bg);
+  return op.text.length;
+}
+function step(t) {
+  let budget = fast ? 1e9 : Math.max(1, Math.round((t - lastT) / 1000 * CPS));
+  lastT = t;
+  while (budget > 0 && Q.length) {
+    const op = Q[0];
+    if (op.text !== undefined && op.text.length > budget) {
+      appendText(op.text.slice(0, budget), op.fg, op.bg);
+      op.text = op.text.slice(budget); budget = 0;
+    } else { budget -= appendOp(op); Q.shift(); }
+  }
+  trimScrollback(); scrollDown();
+  if (Q.length) requestAnimationFrame(step);
+  else {
+    running = false; fast = false;
+    const d = drainers; drainers = [];
+    d.forEach(x => { pending.delete(x.entry); x.res(); });
+  }
+}
+function trimScrollback() { while (scr.childNodes.length > 3000) scr.removeChild(scr.firstChild); }
+function scrollDown() { scroll.scrollTop = scroll.scrollHeight; }
+function outEl(cssClass) {
+  const s = document.createElement("span"); s.className = cssClass || "f7";
+  Q.push({ el: s });
+  if (!running) { running = true; lastT = performance.now(); requestAnimationFrame(step); }
+  return track((res, rej, entry) => drainers.push({ res: () => res(s), entry })).then(() => s);
+}
+
+// ---------------------------------------------------------------- input
+let want = null, lastInput = Date.now();
+function renderLive() {
+  live.textContent = "";
+  if (want && want.type === "line") {
+    const t = document.createElement("span"); t.className = "f15";
+    t.textContent = want.mask ? "*".repeat(want.buf.length) : want.buf;
+    live.appendChild(t);
+  }
+  const c = document.createElement("span"); c.className = "cur"; c.textContent = "_";
+  live.appendChild(c);
+  scrollDown();
+  updateKeys();
+}
+function updateKeys() {
+  if (!keysEl) return;
+  keysEl.textContent = "";
+  const add = (k, label, fn) => {
+    const b = document.createElement("button"); b.type = "button";
+    if (k) { const kb = document.createElement("b"); kb.textContent = k; b.appendChild(kb); }
+    b.appendChild(document.createTextNode(label));
+    b.addEventListener("click", fn); keysEl.appendChild(b);
+  };
+  if (want && want.type === "line") { add("", "Tap to type", () => kbd.focus()); add("", "ENTER", () => feed("\r")); }
+  else if (want && !want.keys) add("", "Continue", () => feed(" "));
+  else if (want) {
+    const seen = new Set();
+    scr.querySelectorAll(".hk:not(.stale)").forEach(h => {
+      const k = h.dataset.k;
+      if (+h.dataset.g !== gen || seen.has(k) || !want.keys.has(k)) return;
+      seen.add(k);
+      let txt = "", n = h.nextSibling;
+      while (n && n !== live && !(n.classList && n.classList.contains("hk")) && txt.length < 60) { txt += n.textContent; n = n.nextSibling; }
+      const label = (txt.split(/\s{2,}|\n/).map(x => x.trim()).filter(Boolean)[0] || "").slice(0, 24);
+      add(k, label, () => feed(k));
+    });
+  }
+  keysEl.hidden = !keysEl.children.length;
+}
+renderLive();
+function staleHotkeys() { gen++; scr.querySelectorAll(".hk:not(.stale)").forEach(h => h.classList.add("stale")); }
+function readKey(keys, opts = {}) {
+  return track((res, rej, entry) => {
+    want = { type: "key", keys: keys ? new Set(keys.toUpperCase().split("")) : null, enter: opts.enter, res: k => { staleHotkeys(); res(k); }, entry };
+    renderLive();
+  });
+}
+function anyKey(msg) {
+  return out(msg || "\n|08[|07press any key|08]").then(() => readKey(null)).then(() => outNow("\n"));
+}
+function readLine(opts = {}) {
+  return track((res, rej, entry) => {
+    want = { type: "line", buf: "", max: opts.max || 40, mask: !!opts.mask, upper: !!opts.upper, res, entry };
+    renderLive();
+    if (!matchMedia("(pointer: coarse)").matches) kbd.focus({ preventScroll: true });
+  });
+}
+function feed(ch) {
+  lastInput = Date.now();
+  A.ensure();
+  if (running) { fast = true; return; }
+  if (!want) return;
+  const w = want;
+  if (w.type === "key") {
+    let k = ch === "\r" ? "\r" : ch.toUpperCase();
+    if (!w.keys || w.keys.has(k) || (k === "\r" && w.enter)) { want = null; renderLive(); w.res(k === "\r" && w.enter ? w.enter : k); }
+    return;
+  }
+  if (ch === "\r") { want = null; outNow("|15" + (w.mask ? "*".repeat(w.buf.length) : esc(w.buf)) + "|07\n"); renderLive(); w.res(w.buf); return; }
+  if (ch === "\b") { w.buf = w.buf.slice(0, -1); renderLive(); return; }
+  if (ch === "\x1b") return;
+  if (ch.length === 1 && ch >= " " && w.buf.length < w.max) { w.buf += w.upper ? ch.toUpperCase() : ch; renderLive(); }
+}
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const onButton = e.target && e.target.tagName === "BUTTON";
+  if (onButton && (e.key === "Enter" || e.key === " ")) return;
+  if (e.key === "Enter") { e.preventDefault(); feed("\r"); }
+  else if (e.key === "Backspace") { e.preventDefault(); feed("\b"); }
+  else if (e.key === "Escape") { feed("\x1b"); }
+  else if (e.key && e.key.length === 1) { e.preventDefault(); feed(e.key); }
+});
+kbd.addEventListener("input", () => { const v = kbd.value; kbd.value = ""; for (const ch of v) feed(ch); });
+crt.addEventListener("click", e => {
+  const hk = e.target.closest(".hk");
+  if (hk && !hk.classList.contains("stale") && +hk.dataset.g === gen) { feed(hk.dataset.k); return; }
+  if (want && want.type === "key" && !want.keys) { feed(" "); return; }
+  if (running) { fast = true; }
+  kbd.focus({ preventScroll: true });
+});
+function esc(s) { return String(s).replace(/\|/g, "!").replace(/[{}]/g, "").replace(/[\x00-\x1f]/g, ""); }
+function pad(s, n) { s = String(s); return s.length >= n ? s.slice(0, n) : s + " ".repeat(n - s.length); }
+function lpad(s, n) { s = String(s); return s.length >= n ? s : " ".repeat(n - s.length) + s; }
+
+// ---------------------------------------------------------------- audio (modem noises)
+const A = {
+  ctx: null, master: null, on: true,
+  ensure() {
+    if (!this.ctx) {
+      try {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.master = this.ctx.createGain(); this.master.gain.value = 0.12; this.master.connect(this.ctx.destination);
+      } catch (e) { this.ctx = null; }
+    }
+    if (this.ctx && this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+  },
+  ready() { return this.on && this.ctx && this.ctx.state === "running"; },
+  cut() { if (this.ctx && this.master) { this.master.disconnect(); this.master = this.ctx.createGain(); this.master.gain.value = 0.12; this.master.connect(this.ctx.destination); } },
+  tone(freqs, at, dur, vol = 0.5) {
+    const c = this.ctx, t = c.currentTime + at, g = c.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.01);
+    g.gain.setValueAtTime(vol, t + dur - 0.015); g.gain.linearRampToValueAtTime(0, t + dur);
+    g.connect(this.master);
+    freqs.forEach(f => { const o = c.createOscillator(); o.frequency.value = f; o.connect(g); o.start(t); o.stop(t + dur + 0.05); });
+  },
+  noise(at, dur, freq, q, vol) {
+    const c = this.ctx, t = c.currentTime + at, len = Math.ceil(c.sampleRate * dur);
+    const buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const s = c.createBufferSource(); s.buffer = buf;
+    const f = c.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
+    const g = c.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.03); g.gain.setValueAtTime(vol, t + dur - 0.05); g.gain.linearRampToValueAtTime(0, t + dur);
+    s.connect(f); f.connect(g); g.connect(this.master); s.start(t); s.stop(t + dur + 0.05);
+  },
+  async play(fn, dur) { if (this.ready()) fn(); await sleep(dur * 1000); },
+  dialTone() { return this.play(() => this.tone([350, 440], 0, 0.7, 0.35), 0.75); },
+  dtmf(num) {
+    const R = [697, 770, 852, 941], C = [1209, 1336, 1477];
+    const map = { 1: [0, 0], 2: [0, 1], 3: [0, 2], 4: [1, 0], 5: [1, 1], 6: [1, 2], 7: [2, 0], 8: [2, 1], 9: [2, 2], 0: [3, 1] };
+    const digits = num.replace(/\D/g, "").split("");
+    return this.play(() => digits.forEach((d, i) => this.tone([R[map[d][0]], C[map[d][1]]], i * 0.14, 0.08, 0.4)), digits.length * 0.14 + 0.2);
+  },
+  ring() { return this.play(() => this.tone([440, 480], 0, 1.1, 0.3), 2.1); },
+  busy() { return this.play(() => { for (let i = 0; i < 4; i++) this.tone([480, 620], i, 0.5, 0.3); }, 4); },
+  handshake() {
+    return this.play(() => {
+      this.tone([2100], 0, 1.0, 0.35);
+      this.tone([1375, 2002], 1.1, 0.35, 0.3);
+      this.tone([980], 1.5, 0.12, 0.3); this.tone([1650], 1.65, 0.12, 0.3); this.tone([980], 1.8, 0.12, 0.3);
+      this.tone([2250, 1200], 2.0, 0.45, 0.28);
+      this.noise(2.5, 1.4, 1800, 0.7, 0.9);
+      this.noise(2.6, 1.2, 600, 1.5, 0.5);
+    }, 4.0);
+  },
+  blip() { if (this.ready()) this.tone([880], 0, 0.04, 0.2); },
+};
+try { if (localStorage.getItem("tankz-snd") === "off") A.on = false; } catch (e) {}
+function paintSnd() { bSnd.innerHTML = 'SND <span class="on">' + (A.on ? "ON" : "OFF") + "</span>"; }
+paintSnd();
+bSnd.addEventListener("click", () => {
+  A.on = !A.on; A.ensure(); if (!A.on) A.cut(); paintSnd();
+  try { localStorage.setItem("tankz-snd", A.on ? "on" : "off"); } catch (e) {}
+});
+
+// ---------------------------------------------------------------- the phone line (room presence)
+let room = null, roomResolved = false, db = null;
+let me = { line: null };
+let state = "offline";            // offline | dialing | online
+let onlineAt = 0, myNode = 0, localNode = false;
+const cl = window.claude && window.claude.use ? window.claude : null;
+(cl ? cl.use("room") : Promise.resolve(null)).then(r => {
+  room = r; roomResolved = true;
+  if (!r) return;
+  r.onPeers(checkCollision, () => { room = null; });
+}).catch(() => { roomResolved = true; });
+(cl ? cl.use("db") : Promise.resolve(null)).then(d => { db = d; }).catch(() => {});
+
+function act(s) { presence({ act: session && session.elite ? "Reading bulletins" : s }); }
+function presence(patch) {
+  Object.assign(me, patch);
+  if (room) room.presence(patch).catch(() => {});
+}
+function callers() {
+  if (!room) return [];
+  return room.peers().filter(p => p.kind === "viewer" && p.presence && (p.presence.line === "online" || p.presence.line === "dialing"));
+}
+function rankKey(p) { return [Number(p.presence.since) || 0, p.peer]; }
+function before(a, b) { const x = rankKey(a), y = rankKey(b); return x[0] - y[0] || (x[1] < y[1] ? -1 : x[1] > y[1] ? 1 : 0); }
+function lineAvailable() {
+  const all = callers();
+  const others = all.filter(p => !p.sameTab);
+  const online = others.filter(p => p.presence.line === "online");
+  if (online.length >= PHONE_LINES) return false;
+  const self = all.find(p => p.sameTab) || { presence: me, peer: "~" };
+  const ahead = others.filter(p => p.presence.line === "dialing" && before(p, self) < 0);
+  return online.length + ahead.length < PHONE_LINES;
+}
+function pickNode() {
+  const used = new Set(callers().filter(p => !p.sameTab && p.presence.line === "online").map(p => p.presence.node));
+  for (let n = 1; n <= PHONE_LINES; n++) if (!used.has(n)) return n;
+  return 1;
+}
+function checkCollision() {
+  if (state !== "online" || !room || localNode) return;
+  const all = callers();
+  const self = all.find(p => p.sameTab);
+  if (!self) return;
+  const ahead = all.filter(p => !p.sameTab && p.presence.line === "online" && before(p, self) < 0);
+  if (ahead.length >= PHONE_LINES) dropCarrier("|12*** Line collision. Somebody else picked up the line first.");
+}
+function whosOnline() {
+  if (!room || localNode) return [{ node: myNode || 1, handle: me.handle || "(you)", act: me.act || "", you: true }];
+  return callers().filter(p => p.presence.line === "online")
+    .map(p => ({ node: Number(p.presence.node) || 0, handle: String(p.presence.handle || "(logging in)").slice(0, 20), act: String(p.presence.act || "").slice(0, 30), you: p.sameTab }))
+    .sort((a, b) => a.node - b.node);
+}
+
+// ---------------------------------------------------------------- session control
+let flowId = 0;
+function run(fn) {
+  const id = ++flowId;
+  fn().catch(e => { if (!(e instanceof Hangup)) { console.error(e); if (id === flowId) dropCarrier("|12*** Line noise. Carrier lost."); } });
+}
+function abortAll() {
+  Q = []; running = false; fast = false; drainers = [];
+  want = null; renderLive();
+  for (const p of [...pending]) { if (p.cancel) p.cancel(); p.rej(new Hangup()); }
+  pending.clear();
+  A.cut();
+}
+function setMode(m) {
+  state = m;
+  stMode.textContent = m === "online" ? "ONLINE" : m === "dialing" ? "DIALING" : "OFFLINE";
+  bHang.hidden = m === "offline";
+  if (m === "online") { onlineAt = Date.now(); lastInput = Date.now(); }
+  stNode.textContent = m === "online" ? "NODE " + myNode + (localNode ? " (LOCAL)" : "") : "NODE --";
+}
+function releaseLine() { presence({ line: null, node: null, since: null, handle: null, act: null }); myNode = 0; }
+function dropCarrier(msg) {
+  if (state === "offline") return;
+  abortAll(); releaseLine(); setMode("offline"); session = null;
+  run(async () => {
+    if (msg) outNow("\n" + msg + "\n");
+    outNow("\n|15NO CARRIER\n");
+    await sleep(900);
+    await dialer();
+  });
+}
+bHang.addEventListener("click", () => dropCarrier("|08+++ ATH0"));
+setInterval(() => {
+  if (state !== "online") { stTime.textContent = "00:00:00"; return; }
+  const s = Math.floor((Date.now() - onlineAt) / 1000);
+  stTime.textContent = [s / 3600, (s % 3600) / 60, s % 60].map(x => String(Math.floor(x)).padStart(2, "0")).join(":");
+  if (s >= TIME_LIMIT_MIN * 60) dropCarrier("|12*** Your " + TIME_LIMIT_MIN + " minutes are up. Give somebody else a turn on the line.");
+  else if (Date.now() - lastInput > IDLE_LIMIT_MIN * 60000 && !running) dropCarrier("|12*** Inactivity timeout. Don't hog the line.");
+}, 1000);
+function timeLeft() { return Math.max(0, TIME_LIMIT_MIN - Math.floor((Date.now() - onlineAt) / 60000)); }
+window.addEventListener("pagehide", releaseLine);
+
+// ---------------------------------------------------------------- era date
+const NOW = new Date();
+const THEN = new Date(NOW.getFullYear() - 30, NOW.getMonth(), NOW.getDate());
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const md = d => String(d.getMonth() + 1).padStart(2, "0") + "/" + String(d.getDate()).padStart(2, "0");
+const mdy = d => md(d) + "/" + String(d.getFullYear()).slice(-2);
+const daysAgo = n => { const d = new Date(THEN); d.setDate(d.getDate() - n); return d; };
+function stamp(ms) {
+  const d = new Date(ms), t = new Date(THEN); t.setHours(d.getHours(), d.getMinutes());
+  const back = Math.max(0, Math.round((Date.now() - ms) / 86400000)); t.setDate(t.getDate() - back);
+  let h = t.getHours(), ap = h >= 12 ? "pm" : "am"; h = h % 12 || 12;
+  return mdy(t) + " " + h + ":" + String(t.getMinutes()).padStart(2, "0") + ap;
+}
+
+// ---------------------------------------------------------------- art helpers
+async function art(name) { await out(ART[name].join("\n") + "\n|07"); }
+function rule(c, ch, n) { return "|" + String(c).padStart(2, "0") + (ch || "-").repeat(n || 78) + "|07\n"; }
+
+// ================================================================= DIALER
+async function dialer() {
+  setMode("offline");
+  while (true) {
+    cls();
+    await out(
+      "|15 SEPTIC.FON |08- |07Dialing Directory                               |08v2.1\n" +
+      "|09+----+---------------------------+------------------+--------+-------------+\n" +
+      "|09||11 ## |09||11 " + pad("Name", 26) + "|09||11 " + pad("Number", 17) + "|09||11 " + pad("Baud", 7) + "|09||11 " + pad("Protocol", 12) + "|09|\n" +
+      "|09+----+---------------------------+------------------+--------+-------------+\n" +
+      "|09|" + "|15  1 " + "|09|" + "|14 " + pad(BOARD, 26) + "|09|" + "|07 " + pad(PHONE, 17) + "|09|" + "|07 14400  " + "|09|" + "|07 Zmodem      " + "|09|\n" +
+      "|09|" + "|08  2 " + "|09|" + "|08 " + pad("The Grease Trap", 26) + "|09|" + "|08 " + pad("[unlisted]", 17) + "|09|" + "|08 2400   " + "|09|" + "|08 Xmodem      " + "|09|\n" +
+      "|09|" + "|08  3 " + "|09|" + "|08 " + pad("Mom's House (voice!)", 26) + "|09|" + "|08 " + pad("do not dial", 17) + "|09|" + "|08 --     " + "|09|" + "|08 --          " + "|09|\n" +
+      "|09+----+---------------------------+------------------+--------+-------------+\n\n" +
+      "|07 " + BOARD + " has |15" + PHONE_LINES + "|07 phone line" + (PHONE_LINES > 1 ? "s" : "") + ". If someone else is on, you get a busy signal.\n\n" +
+      "   {D} Dial " + BOARD + "    {A} Auto-redial until it connects    {?} About\n\n" +
+      "|08 Command: |07"
+    );
+    const k = await readKey("DA?");
+    if (k === "?") { await about(); continue; }
+    if (k === "D") { if (await dial()) return board(); await anyKey("\n|08[|07press any key to return to the directory|08]"); continue; }
+    if (k === "A") {
+      for (let tries = 1; tries <= 12; tries++) {
+        outNow("\n|08Auto-redial attempt " + tries + " of 12\n");
+        if (await dial()) return board();
+        outNow("|08Waiting 20 seconds before the next try. Any key cancels.\n");
+        const keyP = readKey(null); keyP.catch(() => {});
+        const r = await Promise.race([sleep(20000).then(() => null), keyP]);
+        if (r) break;
+        want = null; renderLive();
+      }
+      continue;
+    }
+  }
+}
+
+async function about() {
+  cls();
+  await out(
+    "|15 About this terminal\n" + rule(8) +
+    "|07 " + BOARD + " is a virtual dial-up BBS. Like the real thing, it only has\n" +
+    " " + PHONE_LINES + " phone line" + (PHONE_LINES > 1 ? "s" : "") + ": while a caller is connected, everyone else gets |12BUSY|07.\n\n" +
+    " Calls are capped at |15" + TIME_LIMIT_MIN + "|07 minutes, and you're dropped after |15" + IDLE_LIMIT_MIN + "|07 idle\n" +
+    " minutes so the line doesn't get hogged.\n\n" +
+    " Tap any |14[key]|07 on screen, or type. Tap the screen to bring up a keyboard.\n" +
+    " Tapping while text is scrolling speeds it up.\n\n" +
+    "|08 Line check: " + (room ? "|10live|08 (callers can see each other)" : roomResolved ? "|06local only|08 (this copy can't see other callers)" : "|07connecting...") + "\n"
+  );
+  await anyKey();
+}
+
+async function dial() {
+  setMode("dialing");
+  outNow("\n");
+  await out("|07ATZ\n"); await sleep(250);
+  await out("|15OK\n"); await sleep(300);
+  await out("|07ATDT" + PHONE + "\n");
+  presence({ line: "dialing", since: Date.now(), node: null });
+  await A.dialTone();
+  await A.dtmf(PHONE);
+  const t0 = Date.now();
+  let rings = 0;
+  while (rings < 2 || (!roomResolved && Date.now() - t0 < 11000) || (room && !room.connected() && Date.now() - t0 < 7000)) {
+    await A.ring(); rings++;
+    if (rings > 6) break;
+  }
+  if (room && room.connected() && !lineAvailable()) {
+    presence({ line: null, since: null });
+    await out("|12BUSY\n");
+    await A.busy();
+    setMode("offline");
+    return false;
+  }
+  localNode = !(room && room.connected());
+  myNode = localNode ? 1 : pickNode();
+  presence({ line: "online", node: myNode, act: "Handshaking" });
+  await A.handshake();
+  if (state !== "dialing") return false;
+  await out("|15CONNECT 14400/ARQ/V32BIS/LAPM/V42BIS\n");
+  setMode("online");
+  await sleep(500);
+  return true;
+}
+
+// ================================================================= BBS LOGIN
+let session = null;
+async function board() {
+  cls();
+  await out("|08Detecting ANSI... |10yes\n|08Emulation: |07ANSI-BBS  |08Node: |07" + myNode + (localNode ? " (local)" : " of " + PHONE_LINES) + "\n\n");
+  await sleep(300);
+  await art("logo_main");
+  await out("\n" + rule(8) + "|07   SludgeWare BBS v0.99" + "|08\u00df|07  |08*|07  SysOp: |15ThE PLuMBeR|07  |08*|07  " + DAYS[THEN.getDay()] + ", " + MONTHS[THEN.getMonth()] + " " + THEN.getDate() + "\n" + rule(8) + "\n");
+  await art("tank");
+  act("Logging in");
+  let handle = "", elite = false;
+  for (let tries = 0; tries < 3 && !handle; tries++) {
+    await out("\n|07Enter your handle, or |14NEW|07: |15");
+    const h = (await readLine({ max: 20 })).trim();
+    if (!h) continue;
+    if (h.toUpperCase() === "NEW") {
+      await out("|07Pick a handle: |15");
+      const nh = (await readLine({ max: 20 })).trim();
+      if (!nh) continue;
+      await out("|07Choose a password: ");
+      await readLine({ max: 20, mask: true });
+      await out("|08Real name (SysOp eyes only): |15"); await readLine({ max: 30 });
+      await out("|08City, State: |15"); await readLine({ max: 30 });
+      await out("|10Account created. Access level 10. Welcome to the tank.\n");
+      handle = nh; continue;
+    }
+    await out("|07Password: ");
+    const p = (await readLine({ max: 20, mask: true })).trim();
+    handle = h;
+    elite = h.toUpperCase() === SECRET_HANDLE && p.toUpperCase() === SECRET_PASS;
+  }
+  if (!handle) { await out("|12Too many tries. Goodbye.\n"); return dropCarrier(); }
+  session = { handle: esc(handle).slice(0, 20), elite, dl: 0, ul: 0, credit: 0, posted: 0, calls: 1 + Math.floor(Math.random() * 40) };
+  if (elite) return cesspool(true);
+  presence({ handle: session.handle });
+  logCaller(session.handle);
+  return lobby();
+}
+
+// ================================================================= MAINSTREAM SIDE
+async function lobby() {
+  act("Reading bulletins");
+  await out("\n|10Welcome back, |15" + session.handle + "|10!  |07You are caller |15#" + (4100 + Math.floor((Date.now() / 60000) % 900)) + "|07.\n");
+  await out("|08Checking your mailbox... |07no new mail. Nobody loves you.\n");
+  await sleep(400);
+  await oneliners(true);
+  return mainMenu();
+}
+
+async function mainMenu() {
+  while (true) {
+    act("Main menu");
+    cls();
+    await out(
+      "|09.----------------------------------------------------------------------------.\n" +
+      "|09|  |11T H E   S E P T I C   T A N K Z    |03// |07main menu" + " ".repeat(27) + "|09|\n" +
+      "|09'----------------------------------------------------------------------------'\n\n" +
+      "|07   {M} Message Bases        {F} File Areas           {B} Bulletins\n" +
+      "|07   {D} Door Games           {O} One-Liners           {L} Last Callers\n" +
+      "|07   {W} Who's Online         {Y} Your Stats           {C} Page the SysOp\n" +
+      "|07   {G} Goodbye (log off)\n\n" +
+      "|08[|07" + BOARD + "|08] |03Main |08(|07time left: " + timeLeft() + "m|08) |15Command: |07"
+    );
+    const k = await readKey("MFBDOLWYCG");
+    if (k === "M") await messageBases();
+    else if (k === "F") await fileAreas(FILES_MAIN, "File Areas");
+    else if (k === "B") await bulletins();
+    else if (k === "D") await doors();
+    else if (k === "O") await oneliners(false);
+    else if (k === "L") await lastCallers();
+    else if (k === "W") await whoScreen();
+    else if (k === "Y") await yourStats();
+    else if (k === "C") await pageSysop();
+    else if (k === "G") return goodbye();
+  }
+}
+
+async function goodbye() {
+  await out("\n|07Log off? {Y} Yes  {N} No |15");
+  const k = await readKey("YN");
+  if (k === "N") return mainMenuOrElite();
+  cls();
+  await art("toilet");
+  await out("\n|08Time online: |07" + stTime.textContent + "   |08Downloads: |07" + session.dl + "   |08Posts: |07" + session.posted + "\n\n");
+  await sleep(1200);
+  dropCarrier("|08+++ ATH0");
+}
+function mainMenuOrElite() { return session.elite ? cesspool(false) : mainMenu(); }
+
+async function whoScreen() {
+  act("Who's online");
+  cls();
+  await out("|11 Who's Online\n" + rule(3) + "|08 Node  Handle                 Doing\n|08 ----  ---------------------  ------------------------------\n");
+  for (let n = 1; n <= PHONE_LINES; n++) {
+    const u = whosOnline().find(x => x.node === n);
+    if (u) await out("|15 " + lpad(n, 3) + "   |14" + pad(esc(u.handle), 22) + " |07" + esc(u.act) + (u.you ? " |08(you)" : "") + "\n");
+    else await out("|08 " + lpad(n, 3) + "   " + pad("-- waiting for caller --", 22) + "\n");
+  }
+  if (localNode) await out("\n|08 (Local node: other callers aren't visible from this copy.)\n");
+  await anyKey();
+}
+
+async function yourStats() {
+  cls();
+  const ratio = session.ul ? "1:" + (session.dl / Math.max(1, session.ul)).toFixed(1) : "0:" + session.dl;
+  await out(
+    "|11 Your Stats\n" + rule(3) +
+    "|07 Handle ........ |15" + session.handle + "\n" +
+    "|07 Access level .. |15" + (session.elite ? "255 (Elite)" : "10 (User)") + "\n" +
+    "|07 Times called .. |15" + session.calls + "\n" +
+    "|07 Downloads ..... |15" + session.dl + " file(s)\n" +
+    "|07 Uploads ....... |15" + session.ul + " file(s)\n" +
+    "|07 U/D ratio ..... |15" + ratio + "\n" +
+    "|07 Messages ...... |15" + session.posted + " posted this call\n" +
+    "|07 Time left ..... |15" + timeLeft() + " minutes\n"
+  );
+  await anyKey();
+}
+
+async function pageSysop() {
+  act("Paging the SysOp");
+  await out("\n|07Reason for chat: |15");
+  await readLine({ max: 50 });
+  await out("|08Paging ThE PLuMBeR");
+  for (let i = 0; i < 6; i++) { if (A.ready()) A.tone([1200], 0, 0.12, 0.2); await sleep(500); await out("|08."); }
+  await out("\n|07The SysOp is asleep in the recliner. Leave a message in |14General|07 instead.\n");
+  await anyKey();
+}
+
+// ---------------------------------------------------------------- bulletins
+const BULLETINS = [
+  ["Board rules", [
+    "1. This is a |15family board|07. Shareware and public domain only.",
+    "2. No ALL CAPS in the message bases. We can hear you fine.",
+    "3. One call per hour. There is ONE phone line and my wife needs it.",
+    "4. Upload something now and then. Leeches get flushed.",
+    "5. Be nice. Lamers will be deleted without ceremony.",
+  ]],
+  ["Why is the line always busy?", [
+    "Because this board runs on |15one|07 phone line in a basement in Watertown.",
+    "If you get a busy signal, try again in a few minutes, or use auto-redial",
+    "from your terminal's dialing directory. Calls are capped at " + TIME_LIMIT_MIN + " minutes.",
+    "",
+    "Saving up for a second line. Donations of US Robotics modems welcome.",
+  ]],
+  ["Septic facts (the SysOp insists)", [
+    "* A septic tank separates waste into three layers: |06scum|07 on top,",
+    "  |03effluent|07 in the middle, and |06sludge|07 on the bottom.",
+    "* Only the middle layer flows out to the leach field.",
+    "* Most households pump the tank every 3 to 5 years.",
+    "* Do not flush floppy disks. You know who you are.",
+  ]],
+  ["New this month", [
+    "* Message bases are open again after the Great Line Noise of September.",
+    "* New door: |14Escape the Tank|07, a text adventure written by the SysOp.",
+    "* File areas reorganized. Text files moved to area 3.",
+  ]],
+];
+async function bulletins() {
+  while (true) {
+    act("Reading bulletins");
+    cls();
+    await out("|11 Bulletins\n" + rule(3));
+    for (let i = 0; i < BULLETINS.length; i++) await out("|07   {" + (i + 1) + "} " + BULLETINS[i][0] + "\n");
+    await out("\n|07   {Q} Back to main menu\n\n|08Read which bulletin? |07");
+    const k = await readKey("1234Q");
+    if (k === "Q") return;
+    const b = BULLETINS[+k - 1];
+    cls();
+    await out("|14 Bulletin #" + k + ": |15" + b[0] + "\n" + rule(8) + "|07 " + b[1].join("\n|07 ") + "\n");
+    await anyKey();
+  }
+}
+
+// ---------------------------------------------------------------- one-liners & last callers (shared via db)
+async function fetchList(coll, n) {
+  if (!db) return null;
+  try { const s = await db.collection(coll).orderBy("at", "desc").limit(n).get(); return s.docs.map(d => d.data() || {}); }
+  catch (e) { return null; }
+}
+async function oneliners(atLogin) {
+  act("One-liners");
+  if (!atLogin) cls();
+  await out("\n|13 -=[ |15The One-Liner Wall |13]=-\n" + rule(5));
+  const rows = await fetchList("oneliners", 10);
+  if (!rows) await out("|08 The wall is drying. (One-liners only work on the shared board.)\n");
+  else if (!rows.length) await out("|08 Nobody's written on the wall yet. Be the first.\n");
+  else for (const r of rows.slice().reverse()) await out("|14 " + pad(esc(r.handle || "?"), 14) + "|07" + esc(r.text || "").slice(0, 60) + "\n");
+  await out(rule(5) + "|07Add a one-liner? {Y} Yes  {N} No |15");
+  const k = await readKey("YN", { enter: "N" });
+  if (k === "Y") {
+    await out("\n|07> |15");
+    const t = (await readLine({ max: 60 })).trim();
+    if (t && db) {
+      try { await db.collection("oneliners").add({ handle: session.handle, text: t.slice(0, 60), at: Date.now() }); await out("|10Scrawled on the wall.\n"); }
+      catch (e) { await out("|12The wall rejected it. (Your share level may be read-only.)\n"); }
+    } else if (t) await out("|08(Not saved: this copy isn't connected to the shared board.)\n");
+    await sleep(500);
+  } else outNow("\n");
+}
+function logCaller(handle) {
+  if (!db) return;
+  db.collection("callers").add({ handle, at: Date.now(), node: myNode, elite: false }).catch(() => {});
+}
+async function lastCallers() {
+  act("Last callers");
+  cls();
+  await out("|11 Last 12 Callers\n" + rule(3) + "|08 Handle                 Node   When\n|08 ---------------------  ----   ----------------\n");
+  const rows = await fetchList("callers", 12);
+  if (!rows) await out("|08 The callers log only works on the shared board.\n");
+  else for (const r of rows) await out("|14 " + pad(esc(r.handle || "?"), 22) + " |07" + lpad(r.node || 1, 4) + "   |07" + stamp(Number(r.at) || Date.now()) + "\n");
+  await anyKey();
+}
+
+// ---------------------------------------------------------------- message bases (shared via db)
+const BASES = [["general", "General Chat"], ["tech", "Modem & Tech Help"], ["forsale", "For Sale / Wanted"], ["games", "Games & Doors"]];
+async function messageBases() {
+  while (true) {
+    act("Message bases");
+    cls();
+    await out("|11 Message Bases\n" + rule(3));
+    for (let i = 0; i < BASES.length; i++) await out("|07   {" + (i + 1) + "} " + BASES[i][1] + "\n");
+    await out("\n|07   {Q} Back to main menu\n\n|08Which base? |07");
+    const k = await readKey("1234Q");
+    if (k === "Q") return;
+    await readBase(BASES[+k - 1]);
+  }
+}
+async function readBase(base) {
+  act("Reading " + base[1]);
+  let posts = null;
+  if (db) {
+    try { const s = await db.collection("posts").where("base", "==", base[0]).orderBy("at", "asc").limit(200).get(); posts = s.docs.map(d => d.data() || {}); }
+    catch (e) { posts = null; }
+  }
+  if (!posts) { cls(); await out("|12 Message bases are offline on this copy.\n|08 (They only work on the shared board.)\n"); return anyKey(); }
+  let i = posts.length ? posts.length - 1 : -1;
+  while (true) {
+    cls();
+    await out("|11 " + base[1] + "  |08(" + posts.length + " message" + (posts.length === 1 ? "" : "s") + ")\n" + rule(3));
+    if (i < 0) await out("|08 No messages yet. Start something.\n");
+    else {
+      const p = posts[i];
+      await out(
+        "|08 Msg  |15#" + (i + 1) + " of " + posts.length + "\n" +
+        "|08 From |14" + esc(p.from || "?") + "\n" +
+        "|08 To   |07" + esc(p.to || "All") + "\n" +
+        "|08 Subj |15" + esc(p.subj || "(no subject)") + "\n" +
+        "|08 Date |07" + stamp(Number(p.at) || Date.now()) + "\n" + rule(8) +
+        "|07 " + String(p.body || "").split("\n").map(l => esc(l).slice(0, 76)).join("\n|07 ") + "\n" + rule(8)
+      );
+    }
+    await out("|07{N} Next  {P} Previous  {R} Reply  {E} Enter new message  {Q} Quit |15");
+    const k = await readKey("NPREQ", { enter: "N" });
+    if (k === "Q") return;
+    if (k === "N" && i < posts.length - 1) i++;
+    if (k === "P" && i > 0) i--;
+    if (k === "E" || (k === "R" && i >= 0)) {
+      const reply = k === "R" ? posts[i] : null;
+      const np = await editor(base, reply);
+      if (np) { posts.push(np); i = posts.length - 1; }
+    }
+  }
+}
+async function editor(base, reply) {
+  act("Writing a message");
+  outNow("\n");
+  let subj = reply ? ("Re: " + String(reply.subj || "").replace(/^Re: /, "")).slice(0, 40) : "";
+  const to = reply ? String(reply.from || "All") : "All";
+  if (!reply) { await out("|07Subject: |15"); subj = (await readLine({ max: 40 })).trim(); if (!subj) return null; }
+  await out("|08Enter your message. |07/S|08 on a line by itself saves, |07/A|08 aborts. 20 lines max.\n" + rule(8, "-", 76));
+  const lines = [];
+  while (lines.length < 20) {
+    await out("|08" + lpad(lines.length + 1, 2) + ": |07");
+    const l = await readLine({ max: 72 });
+    if (l.trim().toUpperCase() === "/A") { await out("|12Aborted.\n"); await sleep(400); return null; }
+    if (l.trim().toUpperCase() === "/S") break;
+    lines.push(l);
+  }
+  if (!lines.join("").trim()) { await out("|12Empty message. Not saved.\n"); await sleep(500); return null; }
+  const post = { base: base[0], from: session.handle, to: esc(to).slice(0, 20), subj: esc(subj), body: lines.join("\n"), at: Date.now() };
+  try { await db.collection("posts").add(post); session.posted++; await out("|10Message saved.\n"); await sleep(500); return post; }
+  catch (e) { await out("|12Couldn't save it. (Your share level may be read-only.)\n"); await sleep(900); return null; }
+}
+
+// ---------------------------------------------------------------- file areas
+const FILES_MAIN = [
+  ["Utilities", [
+    ["PLUNGR11.ZIP", 88, 3, "Plunger v1.1 - defrags clogged hard drives"],
+    ["SNAKE20.ZIP", 41, 9, "Drain Snake 2.0 - finds files lost in subdirs"],
+    ["TANKCALC.ZIP", 12, 14, "Septic tank sizing calculator (gal/bedroom)"],
+    ["QMODEM45.ZIP", 402, 30, "Q-Modem-ish terminal, shareware, nag screen"],
+    ["UNZIP.EXE", 31, 60, "Get this first if you don't have it"],
+  ]],
+  ["Games (Shareware)", [
+    ["SLUDGE1.ZIP", 412, 2, "Sludge Quest ep.1. Register for episodes 2-3"],
+    ["FLUSHMAN.ZIP", 96, 6, "Flush-Man: pac-style maze game in a sewer"],
+    ["PIPEWRKS.ZIP", 132, 11, "Pipeworks: connect pipes before the flow hits"],
+    ["DRNTRIS.ZIP", 58, 19, "Drain-Tris. Falling pipe fittings. Addictive"],
+  ]],
+  ["Text Files", [
+    ["SEPTIC.TXT", 6, 1, "Care and feeding of your septic system"],
+    ["BBSLIST.TXT", 18, 4, "Area code 617 BBS list, updated this month"],
+    ["MODEMFAQ.TXT", 31, 22, "Modem init strings that actually work"],
+    ["NETIQUET.TXT", 9, 40, "How not to be a lamer in the message bases"],
+  ]],
+];
+async function fileAreas(areas, title, elite) {
+  while (true) {
+    act("Browsing files");
+    cls();
+    await out((elite ? "|13 " : "|11 ") + title + "\n" + rule(elite ? 5 : 3));
+    for (let i = 0; i < areas.length; i++) await out("|07   {" + (i + 1) + "} " + pad(areas[i][0], 30) + "|08" + areas[i][1].length + " files\n");
+    await out("\n|07   {Q} Back\n\n|08Which area? |07");
+    const k = await readKey("123456789".slice(0, areas.length) + "Q");
+    if (k === "Q") return;
+    await listFiles(areas[+k - 1], elite);
+  }
+}
+async function listFiles(area, elite) {
+  while (true) {
+    cls();
+    await out((elite ? "|13 " : "|11 ") + area[0] + "\n" + rule(elite ? 5 : 3) + "|08 #  Filename      Size  Date   Description\n");
+    for (let i = 0; i < area[1].length; i++) {
+      const f = area[1][i];
+      await out("|15 {" + (i + 1) + "} |14" + pad(f[0], 13) + "|07" + lpad(f[1].toLocaleString() + "K", 6) + " |08" + md(daysAgo(f[2])) + "  |07" + f[3] + "\n");
+    }
+    await out("\n|08Download which file? |07{Q} back |15");
+    const k = await readKey("123456789".slice(0, area[1].length) + "Q");
+    if (k === "Q") return;
+    await download(area[1][+k - 1], elite);
+  }
+}
+async function download(f, elite) {
+  if (elite && !f[4] && session.credit < f[1]) {
+    await out("\n|12 RATIO CHECK FAILED.|07 You have |15" + session.credit + "K|07 credit; this needs |15" + f[1] + "K|07.\n |08Upload something first, leech. Ratio here is 1:3.\n");
+    return anyKey();
+  }
+  if (f[4]) { await viewText(f); return; }
+  await out("\n|07Protocol: {Z} Zmodem  {Y} Ymodem  {X} Xmodem  {Q} cancel |15");
+  const p = await readKey("ZYXQ");
+  if (p === "Q") return;
+  await transfer(f, { Z: "Zmodem", Y: "Ymodem-G", X: "Xmodem-1K" }[p], "Send");
+  session.dl++;
+  if (elite) session.credit = Math.max(0, session.credit - f[1]);
+  await out("|08 Saved to C:\\DOWNLOAD\\" + f[0] + " on a hard drive that only exists in 1996.\n");
+  await anyKey();
+}
+async function transfer(f, proto, dir) {
+  act((dir === "Send" ? "Downloading " : "Uploading ") + f[0]);
+  outNow("\n|11 " + proto + " " + dir + ": |15" + f[0] + "  |08(" + (f[1] * 1024).toLocaleString() + " bytes)\n");
+  const bar = await outEl("f7");
+  const dur = Math.min(7000, 1500 + f[1] * 6), t0 = Date.now();
+  while (true) {
+    const p = Math.min(1, (Date.now() - t0) / dur);
+    const cps = 1590 + Math.floor(Math.random() * 90);
+    const n = Math.round(p * 40);
+    bar.textContent = " [" + "#".repeat(n) + ".".repeat(40 - n) + "] " + lpad(Math.round(p * 100), 3) + "%  " + cps.toLocaleString() + " cps  " + Math.round(p * f[1]).toLocaleString() + "K\n";
+    scrollDown();
+    if (p >= 1) break;
+    await sleep(120);
+  }
+  await out("|10 Transfer successful. |081 file, 0 errors.\n");
+}
+async function viewText(f) {
+  act("Reading " + f[0]);
+  cls();
+  await out("|15 " + f[0] + "\n" + rule(8) + f[4].join("\n") + "\n" + rule(8));
+  await anyKey();
+}
+
+// ---------------------------------------------------------------- doors
+async function doors() {
+  while (true) {
+    act("Door games");
+    cls();
+    await out("|11 Door Games\n" + rule(3) +
+      "|07   {1} |14Escape the Tank|07         text adventure by the SysOp    |10OPEN\n" +
+      "|07   {2} Legend of the Red Drain  RPG, 20 turns/day              |08closed\n" +
+      "|07   {3} Trade Wipes 2002         space trading                  |08closed\n" +
+      "|07   {4} Usurp the Throne         multiplayer, 1 node, so... no  |08closed\n" +
+      "\n|07   {Q} Back\n\n|08Open which door? |07");
+    const k = await readKey("1234Q");
+    if (k === "Q") return;
+    if (k === "1") await adventure();
+    else { await out("\n|08Writing DOOR.SYS... loading... |12Door closed.|07 SysOp is still configuring it.\n"); await anyKey(); }
+  }
+}
+
+// ---------------------------------------------------------------- the text adventure
+const ROOMS = {
+  bowl: { name: "Toilet Bowl", desc: "You are a rubber duck, bobbing in a toilet bowl. Somebody just leaned on the handle. The water is starting to swirl.", exits: { down: "pipe" } },
+  pipe: { name: "Sewer Pipe", desc: "A four-inch cast iron pipe slopes away into the dark. It smells like 1958. Back up the way you came is too slippery.", exits: { east: "inlet" }, items: ["wrench"] },
+  inlet: { name: "Inlet Tee", desc: "The pipe drops into a cavern. Below you is a big concrete tank. A tee fitting points straight down into it.", exits: { west: "pipe", down: "scum" } },
+  scum: { name: "Scum Layer", desc: "You float on a crust of grease and mystery. A concrete baffle wall blocks the way east above the surface, but there's a gap down below.", exits: { up: "inlet", down: "effluent" } },
+  effluent: { name: "Effluent Layer", desc: "Murky, but clearer than you'd hope. Light leaks from the gap under the baffle to the east. Below is darkness and something thick.", exits: { up: "scum", east: "outlet", down: "sludge" } },
+  sludge: { name: "Sludge Layer", desc: "Thick, dark, ancient. Things settle here and are never seen again. Except, maybe, by you.", exits: { up: "effluent" }, items: ["ring"] },
+  outlet: { name: "Outlet Tee", desc: "You're under the outlet tee. A pipe leads up and out toward the leach field. Daylight, somewhere.", exits: { west: "effluent", up: "field" } },
+  field: { name: "Leach Field", desc: "You pop out of a distribution pipe into wet grass under a blue sky. A sprinkler ticks somewhere. You are free.", exits: {} },
+};
+const ITEMS = { wrench: "a heavy pipe wrench", ring: "a gold wedding ring" };
+async function adventure() {
+  act("Playing Escape the Tank");
+  cls();
+  await out("|14 E S C A P E   T H E   T A N K\n|08 a text adventure by ThE PLuMBeR - type HELP for commands\n" + rule(6));
+  const roomItems = {}; for (const k in ROOMS) roomItems[k] = (ROOMS[k].items || []).slice();
+  let here = "bowl", inv = [], moves = 0, score = 0;
+  const look = async () => {
+    const r = ROOMS[here];
+    await out("\n|15" + r.name + "\n|07" + wrap(r.desc) + "\n");
+    for (const it of roomItems[here]) await out("|07You see " + ITEMS[it] + " here.\n");
+    const ex = Object.keys(r.exits);
+    await out("|08Exits: " + (ex.length ? ex.join(", ") : "none") + "\n");
+  };
+  await look();
+  while (true) {
+    await out("\n|14> |15");
+    const raw = (await readLine({ max: 40 })).trim().toLowerCase();
+    if (!raw) continue;
+    moves++;
+    let [verb, ...rest] = raw.split(/\s+/); const noun = rest.join(" ").replace(/^(the|a|an) /, "");
+    const dirs = { n: "north", s: "south", e: "east", w: "west", u: "up", d: "down" };
+    if (dirs[verb]) verb = dirs[verb];
+    if (verb === "go" && noun) verb = dirs[noun] || noun;
+    if (["north", "south", "east", "west", "up", "down"].includes(verb)) {
+      const heavy = inv.includes("wrench");
+      if (here === "scum" && verb === "down" && !heavy) { await out("|07You dive. You're a rubber duck. You bob right back up.\n"); continue; }
+      if (here === "outlet" && verb === "up" && heavy) { await out("|07You try to rise, but the wrench holds you down like an anchor.\n"); continue; }
+      if (here === "scum" && verb === "east") { await out("|07The baffle wall is in the way up here.\n"); continue; }
+      const to = ROOMS[here].exits[verb];
+      if (!to) { await out("|07You can't go that way.\n"); continue; }
+      here = to; await look();
+      if (here === "field") {
+        score += 50; if (inv.includes("ring")) score += 50;
+        await out("\n|10*** You escaped the tank in " + moves + " moves. Score: " + score + " of 100. ***\n");
+        if (!inv.includes("ring")) await out("|08Rumor has it something valuable sank to the bottom...\n");
+        return anyKey();
+      }
+      continue;
+    }
+    if (verb === "look" || verb === "l") { await look(); continue; }
+    if (verb === "inventory" || verb === "i" || verb === "inv") { await out("|07You carry: " + (inv.length ? inv.map(i => ITEMS[i]).join(", ") : "nothing. You're a duck.") + "\n"); continue; }
+    if (verb === "take" || verb === "get") {
+      const it = Object.keys(ITEMS).find(k => noun.includes(k));
+      if (!it || !roomItems[here].includes(it)) { await out("|07You don't see that here.\n"); continue; }
+      roomItems[here] = roomItems[here].filter(x => x !== it); inv.push(it);
+      await out("|07Taken. " + (it === "wrench" ? "It's heavy. You ride a little lower in the water." : "Someone's going to be very happy. Or very embarrassed.") + "\n");
+      continue;
+    }
+    if (verb === "drop") {
+      const it = inv.find(k => noun.includes(k));
+      if (!it) { await out("|07You don't have that.\n"); continue; }
+      inv = inv.filter(x => x !== it); roomItems[here].push(it);
+      await out("|07Dropped. " + (it === "wrench" ? "You feel buoyant again." : "") + "\n");
+      continue;
+    }
+    if (verb === "help" || verb === "?") { await out("|07Commands: LOOK, N/S/E/W/UP/DOWN, TAKE <thing>, DROP <thing>, INVENTORY, QUIT\n"); continue; }
+    if (verb === "quack") { await out("|07Quack. It echoes off the concrete.\n"); continue; }
+    if (verb === "quit" || verb === "q") { await out("|07You give up and wait for the pump truck.\n"); await sleep(600); return; }
+    await out("|07I don't know how to \"" + esc(verb) + "\".\n");
+  }
+}
+function wrap(s, n = 76) {
+  const words = s.split(" "), lines = []; let l = "";
+  for (const w of words) { if ((l + " " + w).trim().length > n) { lines.push(l); l = w; } else l = (l + " " + w).trim(); }
+  if (l) lines.push(l);
+  return lines.join("\n");
+}
+
+// ================================================================= THE CESSPOOL (elite side)
+const FILES_ELITE = [
+  ["0-Day Releases", [
+    ["DB-SLDG2.ZIP", 1440, 0, "Sludge Simulator 2 *0-DAY* (11 disks)  [DRaiNBRaiN]"],
+    ["PD-FLUSH.ZIP", 880, 0, "Flush Commander Deluxe +3 trainer      [PiPE DREaMZ]"],
+    ["SN-LEACH.ZIP", 1120, 1, "Leach Field Tycoon, CD rip, no music    [SLUDGE NiNJAS]"],
+    ["AN-GRAY.ZIP", 344, 2, "Graywater Golf '97 +2 trainer          [/\\NAER0BiC]"],
+    ["PD-PUMP.ZIP", 960, 3, "Pump Truck Racer 3D (VGA/SB16)          [PiPE DREaMZ]"],
+  ]],
+  ["Utilz & Progz", [
+    ["SKULLTRM.ZIP", 210, 1, "SkullTerm 2.0: ANSI terminal w/ flaming skull logo"],
+    ["L33TSP34.ZIP", 14, 4, "L33TSP34K: converts any text file to 31337"],
+    ["FAKEFMT.ZIP", 6, 6, "FakeFmt: PRANK. Pretends to format C:. Doesn't."],
+    ["SKULLZ.ZIP", 388, 8, "600 skull & flame icons for Windows 3.11"],
+    ["MATRIX.ZIP", 44, 11, "Green-rain screen saver. Very hacker. Much wow"],
+  ]],
+  ["T-Files (Underground Textz)", [
+    ["COOKBOOK.TXT", 9, 2, "The Underground Cookbook, vol. 1", [
+      "|12          THE UNDERGROUND COOKBOOK |08- |07vol. 1",
+      "|08          compiled by OUTFL0W for all the dudes up past 3am",
+      "",
+      "|07 You downloaded this thinking it was something dangerous. It is: these",
+      " are the nachos that kept the 617 warez scene alive through the winter.",
+      "",
+      "|14 Recipe #1: Courier Nachos|07",
+      "  - one bag of tortilla chips, the cheap kind",
+      "  - a lot of shredded cheddar. More than that.",
+      "  - pickled jalapenos from the jar in the door of the fridge",
+      "  Microwave 90 seconds. Eat at keyboard. Do not get cheese on the 3.5\".",
+      "",
+      "|14 Recipe #2: The 0-Day Sandwich|07",
+      "  - peanut butter, potato chips, white bread",
+      "  Smash the chips into the PB. Ready before your 1.44M finishes.",
+      "",
+      "|14 Recipe #3: Jolt & Pop-Tarts|07",
+      "  It is not a recipe. It is a lifestyle.",
+      "",
+      "|08 Greetz to everyone's mom who let them use the phone line.",
+    ]],
+    ["PH34R.TXT", 4, 5, "The PH34R Manifesto, by a 15 yr old", [
+      "|13               T H E   P H 3 4 R   M A N i F E S T 0",
+      "",
+      "|07 Another one got caught today. It's all over the papers. \"Teenager",
+      " Arrested in Computer Crime Scandal.\" Probably for downloading Doom.",
+      "",
+      " We are the ones who stay up til 4am. We are the ones who know what",
+      " ATZ means. Our parents think we're doing homework. We ARE doing",
+      " homework. Some of it.",
+      "",
+      " You may call us lamers. You may call us kids. But you will never call",
+      " us after 10pm because that is when Mom gets off the phone.",
+      "",
+      " This is our world now. The world of the 14.4 and the busy signal.",
+      "",
+      "|15 PH34R US.|08 (please do not tell my mom)",
+    ]],
+    ["L33TGUID.TXT", 7, 9, "How 2 B 3L33T: a guide for newbies", [
+      "|10 H0W 2 B 3L33T|07 - lesson 1",
+      "",
+      " 1. Alternate CaPs. iT LoOkS MoRe ElItE tHaT wAy.",
+      " 2. Replace letters: a=4, e=3, i=1, o=0, s=5, t=7. Use sparingly. Or always.",
+      " 3. Everything is a 'z'. Filez. Warez. Gamez. Pizzaz.",
+      " 4. Never admit you use a 2400 baud modem.",
+      " 5. Your handle must include at least one of: DARK, SHADOW, DEATH, ACID.",
+      " 6. End every message with a quote from Hackers (1995).",
+      " 7. Upload. The real elite upload. Leeches stay lamers forever.",
+    ]],
+    ["LAMERS.TXT", 5, 13, "Lamest boards in the 617, ranked", [
+      "|12 THE OFFICIAL LAMER LIST|07 (fall edition)",
+      "",
+      " #1  The Grease Trap ...... sysop still runs 2400, ratio is 1:20",
+      " #2  Crystal Cavern ....... all Christian clip art, no files",
+      " #3  Dad's Den ............ literally someone's dad. asks about school",
+      " #4  KILLZONE ............. 4 users. 3 are the sysop's alts",
+      " #5  Mom's House .......... not a BBS. stop calling it. (oops)",
+    ]],
+  ]],
+];
+async function cesspool(fromLogin) {
+  if (fromLogin) {
+    act("Main menu");
+    await out("\n|08Verifying access");
+    for (let i = 0; i < 5; i++) { await sleep(260); await out("."); }
+    await out("\n");
+    cls();
+    for (let i = 0; i < 14; i++) await out("|0" + (i % 2 ? 5 : 4) + "#".repeat(10 + ((i * 37) % 60)) + "\n");
+    await out("|05Scene alias (shown to other callers): |15");
+    const alias = esc((await readLine({ max: 16 })).trim()).slice(0, 16) || "AN0NYM0US";
+    session.handle = alias;
+    presence({ handle: alias });
+    cls();
+    await art("logo_elite");
+    await out("\n|13      ACCESS LEVEL 255 |08:: |12NODE " + myNode + " |08:: |05welcome to the bottom of the tank, |15" + session.handle + "\n");
+    await out("|08      ratio 1:3 |05:: |08no lamers |05:: |08no narcs |05:: |08no bullshit\n\n");
+    await sleep(700);
+  }
+  while (true) {
+    act("Lurking");
+    cls();
+    await out(
+      "|05.--=[ |13THE CESSPOOL |05]=---------------------------------------------=[ |13ELiTE |05]=--.\n\n" +
+      "|07   {N} New Releases (0-day)   {U} Utilz & Progz        {T} T-Files\n" +
+      "|07   {F} NFO Viewer             {A} Affils & Groups      {R} Requests\n" +
+      "|07   {C} Courier Stats          {P} Upload               {W} Who's Online\n" +
+      "|07   {X} Back to the lamer side {G} Goodbye\n\n" +
+      "|05[|13" + session.handle + "|05] |08credit: |15" + session.credit + "K |08tl: |15" + timeLeft() + "m |12CMD|08> |07"
+    );
+    const k = await readKey("NUTFARCPWXG");
+    if (k === "N") await listFiles(FILES_ELITE[0], true);
+    else if (k === "U") await listFiles(FILES_ELITE[1], true);
+    else if (k === "T") await listFiles(FILES_ELITE[2], true);
+    else if (k === "F") await nfo();
+    else if (k === "A") await affils();
+    else if (k === "R") await requests();
+    else if (k === "C") await couriers();
+    else if (k === "P") await upload();
+    else if (k === "W") await whoScreen();
+    else if (k === "X") { session.elite = false; return mainMenu(); }
+    else if (k === "G") return goodbye();
+  }
+}
+async function nfo() {
+  act("Reading an NFO");
+  cls();
+  await art("logo_nfo");
+  await out(
+    "\n|08          ----------------------[ |15proudly presents |08]-----------------------\n\n" +
+    "|07              Title ......... |15Sludge Simulator 2\n" +
+    "|07              Publisher ..... |15Muckworks Interactive\n" +
+    "|07              Disks ......... |1511 x 1.44M          |07Date: |15" + md(THEN) + "\n" +
+    "|07              Supplied by ... |15DRiP DRoP\n" +
+    "|07              Packed by ..... |15OUTFL0W\n\n" +
+    "|08          ---------------------------[ |15notes |08]------------------------------\n" +
+    "|07          First again. Unzip, run INSTALL, choose your tank size. The\n" +
+    "|07          scum physics in this one are honestly next level.\n\n" +
+    "|08          ---------------------------[ |15greetz |08]-----------------------------\n" +
+    "|07          PiPE DREaMZ * SLUDGE NiNJAS * /\\NAER0BiC * all couriers on\n" +
+    "|07          the 617 loop * ThE PLuMBeR for the WHQ * everyone's mom\n\n" +
+    "|08          -----------------------[ |15call our boards |08]------------------------\n" +
+    "|07          The Septic Tankz ........ |13WHQ|07 ........ " + PHONE + "\n" +
+    "|07          The Grease Trap ......... |05EHQ|07 ........ [private]\n"
+  );
+  await anyKey();
+}
+async function affils() {
+  cls();
+  await out("|13 Affiliations\n" + rule(5) +
+    "|15 DRaiNBRaiN      |13World HQ     |07games, first since '94\n" +
+    "|15 PiPE DREaMZ     |05Distro       |07trainers & fixes\n" +
+    "|15 SLUDGE NiNJAS   |05Member       |07CD rips\n" +
+    "|15 /\\NAER0BiC      |05Member       |07golf games, for some reason\n" +
+    "|15 GR3ASE M0NKEYZ  |08Applying     |07ANSI art, slow but pretty\n" + rule(5) +
+    "|08 Want to affil? Leave a request. Bring 10 megs.\n");
+  await anyKey();
+}
+async function requests() {
+  cls();
+  await out("|13 Requests\n" + rule(5) +
+    "|14 OUTFL0W    |07 Anyone got Leach Field Tycoon disk 7? Mine has CRC errors\n" +
+    "|14 DRiP DRoP  |07 Need a 28.8 modem cheap. Will trade 2 Sound Blasters\n" +
+    "|14 ACiD_ToAD  |07 Looking for the Sludge Quest ep.3 manual (for the lookup)\n" +
+    "|14 xXsHaDoWXx |07 can someone teach me how 2 b elite (srs)\n" + rule(5) +
+    "|07Add a request? {Y} Yes {N} No |15");
+  if ((await readKey("YN", { enter: "N" })) === "Y") {
+    await out("\n|07> |15"); await readLine({ max: 60 });
+    await out("|10Request posted. |08Someone will ignore it shortly.\n"); await sleep(600);
+  }
+}
+async function couriers() {
+  cls();
+  await out("|13 Top Couriers (this week)\n" + rule(5) + "|08 #  Handle          Uploaded   Files\n");
+  const rows = [["DRiP DRoP", 41220, 33], ["OUTFL0W", 38900, 29], ["ACiD_ToAD", 12400, 11], ["GR3ASEMNKY", 6100, 5], [session.handle, session.ul ? session.credit / 3 : 0, session.ul]];
+  rows.sort((a, b) => b[1] - a[1]);
+  for (let i = 0; i < rows.length; i++) await out("|15 " + (i + 1) + "  |14" + pad(rows[i][0], 15) + "|07" + lpad(Math.round(rows[i][1]).toLocaleString() + "K", 9) + "   " + lpad(rows[i][2], 5) + "\n");
+  await anyKey();
+}
+async function upload() {
+  act("Uploading");
+  await out("\n|07Filename to upload: |15");
+  const name = (await readLine({ max: 12, upper: true })).trim().replace(/[^A-Z0-9._-]/g, "");
+  if (!name) return;
+  await out("|07Description: |15");
+  await readLine({ max: 45 });
+  await out("|08Start your Zmodem upload now...\n");
+  await sleep(1200);
+  const size = 200 + Math.floor(Math.random() * 1200);
+  await transfer([name, size], "Zmodem", "Receive");
+  session.ul++; session.credit += size * 3;
+  await out("|10 Thanks, d00d. |07+" + (size * 3).toLocaleString() + "K download credit (1:3).\n");
+  await anyKey();
+}
+
+// ---------------------------------------------------------------- boot
+run(dialer);
+</script>
