@@ -37,6 +37,7 @@ function settings(env) {
     mainRatio: n(env.MAIN_RATIO, 5),
     eliteRatio: n(env.ELITE_RATIO, 3),
     startCredit: n(env.START_CREDIT_KB, 2048) * 1024,
+    requireValidation: String(env.REQUIRE_VALIDATION ?? "1") !== "0",
   };
 }
 
@@ -146,7 +147,7 @@ async function ipHash(env, req) {
 }
 function publicUser(u) {
   return {
-    id: u.id, handle: u.handle, location: u.location, level: u.level, sysop: u.level >= 255,
+    id: u.id, handle: u.handle, location: u.location, level: u.level, sysop: u.level >= 255, validated: u.level >= 10,
     elite: !!u.elite, calls: u.calls, created_at: u.created_at, last_call: u.last_call,
     ul_bytes: u.ul_bytes, ul_files: u.ul_files, dl_bytes: u.dl_bytes, dl_files: u.dl_files,
     credit_main: u.credit_main, credit_elite: u.credit_elite, posts: u.posts,
@@ -184,6 +185,11 @@ function canSee(line, user, side) {
 }
 function requireSide(line, user, side) {
   if (!canSee(line, user, side)) throw new BoardError("Unknown area.", 404);
+}
+// New users sit at level 5 until the SysOp validates them: they can read, but not post, upload or download.
+const VALIDATED = 10;
+function requireValidated(user) {
+  if (user.level < VALIDATED) throw new BoardError("Not yet. The SysOp hasn't validated your account. You can look around until then.", 403);
 }
 function requireSysop(user) {
   if (user.level < 255) throw new BoardError("SysOp only.", 403);
@@ -230,6 +236,7 @@ async function route(path, req, env) {
     }
     case "oneliners": {
       if (body.text !== undefined) {
+        requireValidated(user);
         const text = clean(body.text, 60);
         if (!text) throw new BoardError("Write something.");
         if (line.posted >= 20) throw new BoardError("That's enough posting for one call.");
@@ -289,6 +296,7 @@ async function route(path, req, env) {
       return json({ filename: f.filename, b64: btoa(bin) });
     }
     case "download": {
+      requireValidated(user);
       const f = await fileForUser(env, line, user, +body.id);
       const col = f.side === "elite" ? "credit_elite" : "credit_main";
       const cost = f.free || user.level >= 255 ? 0 : f.size;
@@ -323,6 +331,7 @@ async function route(path, req, env) {
     }
     case "post": {
       const base = await baseForUser(env, line, user, +body.base);
+      if (base.name !== "SysOp Feedback") requireValidated(user);
       const subj = clean(body.subj, 40), text = clean(body.body, 4000, { lines: true });
       const to = clean(body.to, 20) || "All";
       if (!subj || !text) throw new BoardError("Needs a subject and a message.");
@@ -350,6 +359,7 @@ async function route(path, req, env) {
       return json({ ok: true });
     }
     case "mailsend": {
+      requireValidated(user);
       const to = await db.prepare("SELECT id, handle FROM users WHERE handle = ? AND banned = 0").bind(clean(body.to, 20)).first();
       if (!to) throw new BoardError("No user by that handle.");
       const subj = clean(body.subj, 40), text = clean(body.body, 4000, { lines: true });
@@ -422,6 +432,30 @@ async function route(path, req, env) {
         .bind(elite, banned, level, cm, ce, u.id).run();
       if (banned) await db.prepare("UPDATE line SET token = NULL, user_id = NULL, handle = NULL, beat = 0 WHERE user_id = ?").bind(u.id).run();
       return json({ ok: true });
+    }
+    case "sysop/newusers": {
+      requireSysop(user);
+      const rows = (await db.prepare("SELECT id, handle, location, created_at, calls, app FROM users WHERE level < ? AND banned = 0 ORDER BY id LIMIT 100").bind(VALIDATED).all()).results;
+      return json({ rows });
+    }
+    case "sysop/validateuser": {
+      requireSysop(user);
+      const u = await db.prepare("SELECT * FROM users WHERE id = ? AND level < ?").bind(+body.id, VALIDATED).first();
+      if (!u) throw new BoardError("That user isn't waiting for validation.");
+      if (!body.approve) {
+        await db.batch([
+          db.prepare("DELETE FROM users WHERE id = ?").bind(u.id),
+          db.prepare("UPDATE line SET token = NULL, user_id = NULL, handle = NULL, beat = 0 WHERE user_id = ?").bind(u.id),
+        ]);
+        return json({ ok: true, deleted: true });
+      }
+      await db.batch([
+        db.prepare("UPDATE users SET level = ?, credit_main = credit_main + ? WHERE id = ?").bind(VALIDATED, s.startCredit, u.id),
+        db.prepare("INSERT INTO mail (to_id, from_id, from_handle, subj, body, at) VALUES (?, ?, ?, ?, ?, ?)").bind(
+          u.id, user.id, user.handle, "You've been validated",
+          `Welcome aboard. You now have full access, plus ${Math.round(s.startCredit / 1024)}K of download credit to get started.\n\nRead RATIOS.TXT in the Text Files area, then go upload something.`, now()),
+      ]);
+      return json({ ok: true, credited: s.startCredit });
     }
     case "sysop/apps": {
       requireSysop(user);
@@ -501,6 +535,7 @@ async function info(env) {
     files: r[1].results[0].n, bytes: r[1].results[0].b, posts: r[2].results[0].n, callers: r[3].results[0].n,
     rules: { mainRatio: s.mainRatio, eliteRatio: s.eliteRatio, startCredit: s.startCredit, maxUpload: s.maxUpload },
     fresh: r[0].results[0].n === 0,
+    requireValidation: s.requireValidation,
     diskFree: s.quota ? Math.max(0, s.quota - r[4].results[0].b) : null,
   });
 }
@@ -572,6 +607,7 @@ async function newUser(req, env, body) {
   const handle = clean(body.handle, 20).replace(/\|/g, "");
   const pass = typeof body.password === "string" ? body.password : "";
   const location = clean(body.location, 30);
+  const app = clean(body.app, 600, { lines: true });
   if (handle.length < 2) throw new BoardError("Handles need at least 2 characters.");
   if (/^(new|sysop|all|guest)$/i.test(handle)) throw new BoardError("That handle is reserved.");
   const word = await config(env, "secret_word");
@@ -582,15 +618,16 @@ async function newUser(req, env, body) {
   const recent = await db.prepare("SELECT COUNT(*) n FROM users WHERE ip_hash = ? AND created_at > ?").bind(ih, t - 86_400_000).first();
   if (recent.n >= 3) throw new BoardError("Too many new accounts from your phone number today.");
   const first = (await db.prepare("SELECT COUNT(*) n FROM users").first()).n === 0;
+  const waits = !first && s.requireValidation;
   const salt = randomHex(16);
   const u = await db.prepare(
-    "INSERT INTO users (handle, pass_hash, salt, location, level, elite, created_at, last_call, calls, credit_main, ip_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?) RETURNING *"
-  ).bind(handle, await hashPass(pass, salt), salt, location, first ? 255 : 10, first ? 1 : 0, t, t, s.startCredit, ih).first();
+    "INSERT INTO users (handle, pass_hash, salt, location, level, elite, created_at, last_call, calls, credit_main, ip_hash, app) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?) RETURNING *"
+  ).bind(handle, await hashPass(pass, salt), salt, location, first ? 255 : waits ? 5 : VALIDATED, first ? 1 : 0, t, t, waits ? 0 : s.startCredit, ih, app).first();
   await db.batch([
     db.prepare("UPDATE line SET user_id = ?, handle = ?, activity = 'Main menu' WHERE node = ?").bind(u.id, u.handle, line.node),
     db.prepare("INSERT INTO callers (user_id, handle, node, at) VALUES (?, ?, ?, ?)").bind(u.id, u.handle, line.node, t),
   ]);
-  return json({ user: publicUser(u), sysop: first, unread: 0, timeLeft: timeLeft(env, line) });
+  return json({ user: publicUser(u), sysop: first, pendingValidation: waits, unread: 0, timeLeft: timeLeft(env, line) });
 }
 
 async function apply(req, env, body) {
@@ -610,6 +647,7 @@ async function apply(req, env, body) {
 async function upload(req, env) {
   const line = await getLine(env, req, "Uploading");
   const user = await getUser(env, line);
+  requireValidated(user);
   const s = settings(env), db = env.DB;
   const area = await db.prepare("SELECT * FROM areas WHERE id = ?").bind(+(req.headers.get("x-area") || 0)).first();
   if (!area) throw new BoardError("Unknown area.", 404);

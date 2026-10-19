@@ -26,6 +26,7 @@
     "BOARD_NAME": "The Septic Tankz",
     "PHONE_LINES": "1",
     "TIME_LIMIT_MIN": "60",
+    "REQUIRE_VALIDATION": "1",
     "FILE_STORE": "kv",
     "MAX_UPLOAD_MB": "25",
     "STORAGE_QUOTA_MB": "900",

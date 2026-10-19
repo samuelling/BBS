@@ -663,7 +663,9 @@ async function newUser() {
   await out("|11 New User Application\n" + rule(3) +
     "|07 Pick a handle (what everyone sees) and a password. New users start\n" +
     " with |15" + K(ru.startCredit) + "|07 of download credit and earn |15" + ru.mainRatio + "x|07 credit for every\n" +
-    " byte they upload once the SysOp validates it.\n\n");
+    " byte they upload once the SysOp validates it.\n" +
+    (INFO && INFO.requireValidation ? "\n|07 New accounts are checked by the SysOp. Until yours is validated you can\n look around, but you can't post, upload or download.\n" : "") +
+    "\n|08 Don't reuse a password from anywhere else. This is a BBS, not a bank.\n\n");
   await out("|07Handle (2-20 characters): |15");
   const handle = (await readLine({ max: 20 })).trim();
   if (!handle) return;
@@ -674,9 +676,18 @@ async function newUser() {
   if (p1 !== p2) { await out("|12Passwords don't match. Start over.\n"); return; }
   await out("|07City, State: |15");
   const location = (await readLine({ max: 30 })).trim();
-  const r = await api("newuser", { handle, password: p1, location });
+  let app = "";
+  if (INFO && INFO.requireValidation && !INFO.fresh) {
+    await out("\n|11 A couple of questions for the SysOp:\n|07How did you hear about The Septic Tankz?\n|07> |15");
+    const heard = (await readLine({ max: 70 })).trim();
+    await out("|07What are you into? (games, ANSI art, music, modems...)\n|07> |15");
+    const into = (await readLine({ max: 70 })).trim();
+    app = "Heard about us: " + (heard || "(no answer)") + "\nInto: " + (into || "(no answer)");
+  }
+  const r = await api("newuser", { handle, password: p1, location, app });
   S = r;
   await out("\n|10Account created. Welcome to the tank, |15" + esc(r.user.handle) + "|10.\n");
+  if (r.pendingValidation) await out("|14Your account is waiting for SysOp validation.|07 You'll get e-mail here when it's done.\n|07Look around in the meantime. Call back tomorrow.\n");
   if (r.sysop) await out("|14You're the first caller ever. You are now the |15SysOp|14 (access level 255).\n|07Use |14[!]|07 on the main menu for the SysOp console.\n");
   await anyKey();
 }
@@ -691,6 +702,17 @@ async function lobby() {
   await out("\n|10Welcome, |15" + esc(S.user.handle) + "|10!  |07This is call |15#" + S.user.calls + "|07 for you.\n");
   if (S.lastCall) await out("|08Last on " + d8(S.lastCall) + " at " + hm(S.lastCall) + ".\n");
   await out(S.unread ? "|14You have " + S.unread + " new e-mail message" + (S.unread > 1 ? "s" : "") + ".\n" : "|08No new mail.\n");
+  if (!S.user.validated) await out("|12Your account hasn't been validated yet.|07 You can read, but not post, upload or download.\n");
+  if (S.user.sysop) {
+    try {
+      const [q, nu, ap] = await Promise.all([api("sysop/queue"), api("sysop/newusers"), api("sysop/apps")]);
+      const bits = [];
+      if (nu.rows.length) bits.push(nu.rows.length + " new user" + (nu.rows.length > 1 ? "s" : ""));
+      if (q.rows.length) bits.push(q.rows.length + " upload" + (q.rows.length > 1 ? "s" : ""));
+      if (ap.rows.length) bits.push(ap.rows.length + " Cesspool application" + (ap.rows.length > 1 ? "s" : ""));
+      if (bits.length) await out("|14SysOp: " + bits.join(", ") + " waiting. |07Press |14[!]|07 on the main menu.\n");
+    } catch (e) { if (e instanceof Hangup) throw e; }
+  }
   await sleep(300);
   await guard(() => oneliners(true));
   return mainMenu();
@@ -710,7 +732,7 @@ async function mainMenu() {
       "|07   {W} Who's Online         {L} Last Callers         {U} User List\n" +
       "|07   {Y} Your Stats           {C} Comment to SysOp     {G} Goodbye (log off)\n" +
       (u.sysop ? "|07   {!} |14SysOp Console\n" : "") + "\n" +
-      "|08[|07" + esc(u.handle) + "|08] |03Main |08(|07credit " + K(u.credit_main) + ", " + timeLeft() + "m left|08) |15Command: |07"
+      "|08[|07" + esc(u.handle) + "|08] |03Main |08(|07" + (u.validated ? "credit " + K(u.credit_main) : "|12unvalidated|07") + ", " + timeLeft() + "m left|08) |15Command: |07"
     );
     const k = await readKey("MFEBDOWLUYCG" + (u.sysop ? "!" : ""));
     if (k === "M") await guard(() => messageBases("main"));
@@ -763,7 +785,7 @@ async function yourStats() {
     "|11 Your Stats\n" + rule(3) +
     "|07 Handle ............ |15" + esc(u.handle) + "\n" +
     "|07 From .............. |15" + esc(u.location || "(somewhere)") + "\n" +
-    "|07 Access level ...... |15" + u.level + (u.sysop ? " (SysOp)" : "") + "\n" +
+    "|07 Access level ...... |15" + u.level + (u.sysop ? " (SysOp)" : u.validated ? "" : " (waiting for validation)") + "\n" +
     "|07 Member since ...... |15" + d8(u.created_at) + "\n" +
     "|07 Calls ............. |15" + u.calls + "\n" +
     "|07 Messages posted ... |15" + u.posts + "\n\n" +
@@ -1289,23 +1311,52 @@ async function adventure() {
 async function sysopConsole() {
   while (true) {
     act("Main menu");
-    const [q, ap] = await Promise.all([api("sysop/queue"), api("sysop/apps")]);
+    const [q, ap, nu] = await Promise.all([api("sysop/queue"), api("sysop/apps"), api("sysop/newusers")]);
     cls();
     await out("|14 SysOp Console\n" + rule(6) +
+      "|07   {N} New users            " + (nu.rows.length ? "|14" + nu.rows.length + " waiting" : "|08none waiting") + "\n" +
       "|07   {V} Validate uploads     " + (q.rows.length ? "|14" + q.rows.length + " waiting" : "|08queue empty") + "\n" +
       "|07   {A} Cesspool applications " + (ap.rows.length ? "|14" + ap.rows.length + " open" : "|08none") + "\n" +
       "|07   {U} Users\n" +
       "|07   {S} Secret entry (show or change)\n" +
       "|07   {W} Who's online / kick a caller\n" +
       "|07   {Q} Back\n\n|08Command: |07");
-    const k = await readKey("VAUSWQ");
+    const k = await readKey("NVAUSWQ");
     if (k === "Q") return;
+    if (k === "N") await guard(newUsersAdmin);
     if (k === "V") await guard(validateQueue);
     if (k === "A") await guard(applications);
     if (k === "U") await guard(usersAdmin);
     if (k === "S") await guard(secretAdmin);
     if (k === "W") await guard(kickAdmin);
   }
+}
+async function newUsersAdmin() {
+  const rows = (await api("sysop/newusers")).rows;
+  for (let i = 0; i < rows.length; i++) {
+    const u = rows[i];
+    cls();
+    await out("|14 New user " + (i + 1) + " of " + rows.length + "\n" + rule(6) +
+      "|07 Handle ....... |14" + esc(u.handle) + "\n" +
+      "|07 From ......... |15" + esc(u.location || "(didn't say)") + "\n" +
+      "|07 Signed up .... |15" + d8(u.created_at) + " " + hm(u.created_at) + "|07, " + u.calls + " call" + (u.calls === 1 ? "" : "s") + " so far\n" + rule(8) +
+      "|07 " + (u.app ? wrap(u.app, 76).split("\n").map(esc).join("\n|07 ") : "|08(no application answers)") + "\n" + rule(8) +
+      "|07{V} Validate  {D} Delete account  {S} Skip  {Q} Quit |15");
+    const k = await readKey("VDSQ");
+    if (k === "Q") return;
+    if (k === "S") continue;
+    if (k === "D") {
+      await out("\n|12Delete " + esc(u.handle) + " for good? {Y} Yes  {N} No |15");
+      if ((await readKey("YN")) === "N") continue;
+      await api("sysop/validateuser", { id: u.id, approve: false });
+      await out("\n|12Flushed.\n");
+    } else {
+      const r = await api("sysop/validateuser", { id: u.id, approve: true });
+      await out("\n|10Validated. |14" + esc(u.handle) + "|10 got " + K(r.credited) + " of credit and an e-mail.\n");
+    }
+    await sleep(600);
+  }
+  if (!rows.length) { await out("\n|08Nobody waiting.\n"); await anyKey(); }
 }
 async function validateQueue() {
   const q = (await api("sysop/queue")).rows;

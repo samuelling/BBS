@@ -27,13 +27,14 @@ past its door.
 - Separate file areas, message bases, last callers and a Top Couriers chart
 
 **Ratios**
-- New users start with 2,048K of main-board credit
+- New users get 2,048K of main-board credit once the SysOp validates them
 - Main board: every byte uploaded earns 5 bytes of download credit (1:5)
 - The Cesspool: 1:3 and no starting credit
 - Credit is granted when the SysOp validates an upload, not before
 - The SysOp can mark files FREE; downloading those costs nothing
 
 **SysOp console** (`[!]` on the menus, SysOp only)
+- Validate new users: read their sign-up answers, then validate (full access plus starting credit) or delete
 - Validate uploads: approve, approve as free, reject, or download to inspect first
 - Approve or deny Cesspool applications (the applicant gets an e-mail)
 - Users: grant or revoke Cesspool access, ban, adjust credit
@@ -110,6 +111,7 @@ In `wrangler.jsonc` under `vars`:
 | --- | --- | --- |
 | `PHONE_LINES` | 1 | Callers allowed on at once (max 16) |
 | `TIME_LIMIT_MIN` | 60 | Minutes per call |
+| `REQUIRE_VALIDATION` | 1 | New users wait for SysOp validation before they can post, upload or download (0 = instant access) |
 | `FILE_STORE` | kv | `kv`, `r2` or `http` (see above) |
 | `MAX_UPLOAD_MB` | 25 | Largest single upload (capped by the storage backend) |
 | `STORAGE_QUOTA_MB` | 900 | Board-wide storage cap (0 = none) |
