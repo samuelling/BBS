@@ -58,8 +58,8 @@ live wherever `FILE_STORE` points (see below).
 
 ## Deploying
 
-The repo is connected to Cloudflare's Workers Builds: every push to `main`
-applies any new database migrations and redeploys the Worker. The build's deploy
+The repo is connected to Cloudflare Workers Builds (Worker name `bbs`): every push
+to `main` applies any new database migrations and redeploys. The build's deploy
 command is:
 
 ```

@@ -3,10 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "python3 build.py",
+    "build": "echo public/index.html is prebuilt. Run python3 build.py locally after changing web/.",
     "dev": "wrangler dev",
     "migrate:local": "wrangler d1 migrations apply septic-tankz --local",
-    "deploy": "wrangler d1 migrations apply septic-tankz --remote && wrangler deploy"
+    "deploy": "wrangler d1 migrations apply septic-tankz --remote && wrangler deploy",
+    "art": "python3 build.py"
   },
   "devDependencies": {
     "wrangler": "4.147.0"
