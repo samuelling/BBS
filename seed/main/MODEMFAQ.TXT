@@ -1,0 +1,21 @@
+MODEM FAQ (the short version)
+-----------------------------
+
+Q: What do all those noises mean when I connect?
+A: The two modems are introducing themselves. First a 2100 Hz answer
+   tone, then they probe the line and agree on the fastest speed it
+   can handle. The hiss at the end is them training their equalizers.
+
+Q: Why do I keep getting dropped?
+A: Usually call waiting. Dial *70, before the number to turn it off
+   for the call. Or somebody picked up the extension. MOM.
+
+Q: What does ATZ do?
+A: Resets the modem to its saved settings. ATDT dials with tones.
+   ATH0 hangs up. +++ gets the modem's attention mid-call.
+
+Q: Zmodem, Ymodem or Xmodem?
+A: Zmodem. It's faster and it can resume a broken download.
+
+Q: Why is the line always busy?
+A: There's one line. Try again in a few minutes.

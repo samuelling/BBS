@@ -1,0 +1,34 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "septic-tankz",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/dl/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "septic-tankz",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    { "binding": "FILES", "bucket_name": "septic-tankz-files" }
+  ],
+  // Board settings. Change these and push; the deploy picks them up.
+  "vars": {
+    "BOARD_NAME": "The Septic Tankz",
+    "PHONE_LINES": "1",
+    "TIME_LIMIT_MIN": "60",
+    "MAX_UPLOAD_MB": "50",
+    "DAILY_UPLOAD_MB": "200",
+    "MAIN_RATIO": "5",
+    "ELITE_RATIO": "3",
+    "START_CREDIT_KB": "2048"
+  },
+  "observability": { "enabled": true }
+}

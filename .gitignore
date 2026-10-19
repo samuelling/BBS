@@ -1,2 +1,5 @@
+node_modules/
+.wrangler/
 __pycache__/
 septic-tankz.html
+deploy.log

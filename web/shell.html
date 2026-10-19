@@ -1,0 +1,130 @@
+<title>The Septic Tankz</title>
+<meta name="bbs-api" content="/*__API__*/">
+<meta name="description" content="The Septic Tankz: a one-line dial-up BBS. Call in, upload, download, post.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap">
+<style>
+/* Layout: one-screen DOS terminal — CRT in a plastic bezel, Telix-style status bar beneath */
+:root {
+  color-scheme: dark;
+  --desk: #15130f;
+  --bezel: #2b2620;
+  --bezel-hi: #3a342b;
+  --screen: #040404;
+  --ink: #aaaaaa;
+  --dim: #6f685c;
+  --bar: #0000aa;
+  --bar-ink: #ffffff;
+  --bar-hi: #ffff55;
+  --term: "VT323", "Courier New", monospace;
+  --c0:#000000; --c1:#0000aa; --c2:#00aa00; --c3:#00aaaa; --c4:#aa0000; --c5:#aa00aa; --c6:#aa5500; --c7:#aaaaaa;
+  --c8:#555555; --c9:#5555ff; --c10:#55ff55; --c11:#55ffff; --c12:#ff5555; --c13:#ff55ff; --c14:#ffff55; --c15:#ffffff;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--desk);
+  color: var(--ink);
+  font-family: var(--term);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px;
+  display: flex;
+}
+#app { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; max-width: 1180px; margin: 0 auto; }
+.top { display: flex; justify-content: space-between; gap: 12px; color: var(--dim); font-size: 18px; letter-spacing: .06em; text-transform: uppercase; }
+.top b { color: #c9bfa9; font-weight: normal; }
+#bezel {
+  flex: 1; min-height: 0; display: flex; padding: 14px; border-radius: 18px;
+  background: linear-gradient(180deg, var(--bezel-hi), var(--bezel));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 30px rgba(0,0,0,.5);
+}
+#crt {
+  position: relative; flex: 1; min-width: 0; min-height: 0; border-radius: 12px; overflow: hidden;
+  background: radial-gradient(ellipse at center, #0b0b0b 0%, var(--screen) 75%);
+  box-shadow: inset 0 0 40px rgba(0,0,0,.9), inset 0 0 2px rgba(255,255,255,.15);
+  cursor: text;
+}
+#scroll { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; padding: 12px; scrollbar-width: thin; scrollbar-color: #333 transparent; }
+#scr {
+  margin: 0 auto; width: max-content; max-width: 100%;
+  font-family: var(--term); font-size: 20px; line-height: 1.05;
+  white-space: pre; color: var(--c7);
+  text-shadow: 0 0 2px rgba(255,255,255,.18), 0 0 6px rgba(120,160,255,.08);
+}
+#crt::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 12px;
+  background: repeating-linear-gradient(180deg, rgba(0,0,0,.22) 0 1px, transparent 1px 3px);
+}
+.f0{color:var(--c0)}.f1{color:var(--c1)}.f2{color:var(--c2)}.f3{color:var(--c3)}.f4{color:var(--c4)}.f5{color:var(--c5)}.f6{color:var(--c6)}.f7{color:var(--c7)}
+.f8{color:var(--c8)}.f9{color:var(--c9)}.f10{color:var(--c10)}.f11{color:var(--c11)}.f12{color:var(--c12)}.f13{color:var(--c13)}.f14{color:var(--c14)}.f15{color:var(--c15)}
+.b1{background:var(--c1)}.b2{background:var(--c2)}.b3{background:var(--c3)}.b4{background:var(--c4)}.b5{background:var(--c5)}.b6{background:var(--c6)}.b7{background:var(--c7)}
+.hk { cursor: pointer; border-radius: 2px; }
+.hk .k { color: var(--c14); }
+.hk .br { color: var(--c8); }
+.hk:not(.stale):hover, .hk:not(.stale):focus-visible { background: var(--c1); outline: none; }
+.hk:not(.stale):hover .k { color: var(--c15); }
+.hk.stale { cursor: inherit; }
+.hk.stale .k { color: inherit; }
+.cur { display: inline-block; width: 1ch; color: var(--c7); animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+#kbd { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; font-size: 16px; }
+#bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0 14px; padding: 2px 10px;
+  background: var(--bar); color: var(--bar-ink); font-size: 19px; line-height: 1.3;
+}
+#bar .sep { color: #5555ff; }
+#bar .hi { color: var(--bar-hi); }
+#bar .grow { flex: 1; }
+#bar button {
+  font: inherit; color: var(--bar-ink); background: #000080; border: 0; padding: 0 8px; cursor: pointer;
+  box-shadow: inset 1px 1px 0 #5555ff, inset -1px -1px 0 #000040;
+}
+#bar button:hover, #bar button:focus-visible { background: #00aaaa; color: #000; outline: none; }
+#bar .on { color: var(--bar-hi); }
+@media (max-width: 560px) {
+  body { padding-block: 6px; }
+  #bezel { padding: 6px; border-radius: 12px; }
+  #scroll { padding: 6px; }
+  .top { font-size: 15px; }
+  #bar { font-size: 16px; gap: 0 8px; }
+  .wide { display: none; }
+}
+#keys { display: none; gap: 6px; flex-wrap: wrap; }
+@media (pointer: coarse), (max-width: 700px) { #keys:not([hidden]) { display: flex; } }
+#keys button {
+  font: inherit; font-size: 19px; color: var(--c15); background: #1d1a15; border: 1px solid #4a4235; border-radius: 4px;
+  padding: 6px 10px; min-height: 40px; cursor: pointer; flex: 1 1 auto; text-align: left;
+}
+#keys button b { color: var(--c14); font-weight: normal; margin-right: 6px; }
+#keys button:active, #keys button:focus-visible { background: var(--c1); outline: none; }
+@media (prefers-reduced-motion: reduce) { .cur { animation: none; } }
+</style>
+
+<div id="app">
+  <div class="top"><span><b>SEPTIC.FON</b> &middot; DOS terminal</span><span>tap a [key] or type</span></div>
+  <div id="bezel">
+    <div id="crt">
+      <div id="scroll"><pre id="scr" aria-live="polite"></pre></div>
+      <input id="picker" type="file" hidden>
+      <input id="kbd" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Terminal keyboard input">
+    </div>
+  </div>
+  <div id="keys" hidden></div>
+  <div id="bar">
+    <span id="st-mode" class="hi">OFFLINE</span><span class="sep">&#9474;</span>
+    <span class="wide" id="st-user">ANSI-BBS</span><span class="sep wide">&#9474;</span>
+    <span>14400 N81</span><span class="sep">&#9474;</span>
+    <span id="st-node">NODE --</span><span class="sep">&#9474;</span>
+    <span id="st-time">00:00:00</span>
+    <span class="grow"></span>
+    <button id="b-snd" type="button">SND <span class="on">ON</span></button>
+    <button id="b-hang" type="button" hidden>HANG UP</button>
+  </div>
+</div>
+
+<script>
+/*__APP__*/
+</script>

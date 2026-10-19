@@ -1,0 +1,24 @@
+UPLOAD/DOWNLOAD RATIOS ON THE SEPTIC TANKZ
+==========================================
+
+This board runs on ratios, like every good board does. You earn
+download credit by uploading.
+
+THE MAIN BOARD
+  * New users start with 2,048K of download credit.
+  * Every byte you upload earns 5 bytes of credit (1:5).
+  * Credit is added when the SysOp validates your upload, not before.
+  * Files marked FREE cost nothing to download.
+  * Reading text files on-line is always free.
+
+UPLOADING
+  * Upload from the file area you want the file to go in.
+  * New uploads wait in the SysOp's validation queue. Junk, viruses
+    and anything we don't want to host get flushed without credit.
+  * Give your file a real description. "cool file" is not one.
+
+YOUR STATS
+  Check [Y] Your Stats on the main menu any time to see your
+  uploads, downloads and remaining credit.
+
+Leeches will be flushed.

@@ -1,29 +1,24 @@
-import json, re, pyfiglet, pathlib
+"""Builds the terminal page.
+
+  public/index.html  served by the Cloudflare Worker (talks to its own /api)
+  index.html         GitHub Pages copy (talks to the Worker at api_base in bbs.config.json)
+"""
+import json, re, pathlib, pyfiglet
+
+ROOT = pathlib.Path(__file__).resolve().parent
 
 def fig(text, font):
-    lines = pyfiglet.figlet_format(text, font=font, width=300).split("\n")
-    lines = [l.rstrip() for l in lines]
+    lines = [l.rstrip() for l in pyfiglet.figlet_format(text, font=font, width=300).split("\n")]
     while lines and not lines[0].strip(): lines.pop(0)
     while lines and not lines[-1].strip(): lines.pop()
     return lines
 
 def shade(lines, colors, indent=0):
-    out = []
-    for i, l in enumerate(lines):
-        c = colors[min(i, len(colors) - 1)]
-        out.append("|%02d" % c + " " * indent + l)
-    return out
+    return ["|%02d" % colors[min(i, len(colors) - 1)] + " " * indent + l for i, l in enumerate(lines)]
 
 ART = {}
-
-main = fig("SEPTiC TANKZ", "doom")
-ART["logo_main"] = ["|08" + " " * 7 + "- = [ |14t h e|08 ] = -"] + shade(main, [15, 11, 11, 3, 3, 1], 6)
-
-elite = fig("CESSPOOL", "poison")
-ART["logo_elite"] = shade(elite, [13, 13, 5, 5, 12, 12, 4, 4, 8, 8])
-
-nfo = fig("DRaiNBRaiN", "slant")
-ART["logo_nfo"] = shade(nfo, [15, 7, 7, 8, 8], 8)
+ART["logo_main"] = ["|08" + " " * 7 + "- = [ |14t h e|08 ] = -"] + shade(fig("SEPTiC TANKZ", "doom"), [15, 11, 11, 3, 3, 1], 6)
+ART["logo_elite"] = shade(fig("CESSPOOL", "poison"), [13, 13, 5, 5, 12, 12, 4, 4, 8, 8])
 
 TANK = [
 " FROM HOUSE                                               TO LEACH FIELD",
@@ -56,7 +51,6 @@ def colorize(lines, fn):
         out.append(s)
     return out
 ART["tank"] = colorize(TANK, tank_color)
-
 ART["toilet"] = [
     "|07              ____________",
     "|07             |  |15SEPTIC|07    |      |08Thanks for calling",
@@ -69,20 +63,19 @@ ART["toilet"] = [
     "|07                 |  |",
     "|07               __|__|__",
 ]
-
-
-assert len(set(len(l) for l in TANK[2:])) <= 2
 for k, v in ART.items():
     for l in v:
-        w = len(re.sub(r"\|\d\d", "", l))
-        assert w <= 80, (k, w, l)
+        assert len(re.sub(r"\|\d\d", "", l)) <= 80, (k, l)
         assert not re.search(r"\{.\}", l), (k, l)
 
-tpl = pathlib.Path("template.html").read_text()
-page = tpl.replace("/*__ART__*/null", json.dumps(ART))
-pathlib.Path("septic-tankz.html").write_text(page)  # artifact body (the host adds the skeleton)
-pathlib.Path("index.html").write_text(
-    '<!doctype html><html lang="en"><head><meta charset="utf-8">'
-    '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>\n'
-    + page + "\n</body></html>\n")  # standalone copy for GitHub Pages
-print("ok", {k: max(len(re.sub(r'\|\d\d', '', l)) for l in v) for k, v in ART.items()})
+cfg = json.loads((ROOT / "bbs.config.json").read_text())
+shell = (ROOT / "web" / "shell.html").read_text()
+app = (ROOT / "web" / "app.js").read_text().replace("/*__ART__*/null", json.dumps(ART))
+page = shell.replace("/*__APP__*/", app)
+doc = lambda api: ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
+                   '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>\n'
+                   + page.replace("/*__API__*/", api) + "\n</body></html>\n")
+(ROOT / "public").mkdir(exist_ok=True)
+(ROOT / "public" / "index.html").write_text(doc(""))
+(ROOT / "index.html").write_text(doc(cfg.get("api_base", "")))
+print("built public/index.html and index.html (api_base=%r)" % cfg.get("api_base", ""))

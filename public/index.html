@@ -1,0 +1,1503 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<title>The Septic Tankz</title>
+<meta name="bbs-api" content="">
+<meta name="description" content="The Septic Tankz: a one-line dial-up BBS. Call in, upload, download, post.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap">
+<style>
+/* Layout: one-screen DOS terminal — CRT in a plastic bezel, Telix-style status bar beneath */
+:root {
+  color-scheme: dark;
+  --desk: #15130f;
+  --bezel: #2b2620;
+  --bezel-hi: #3a342b;
+  --screen: #040404;
+  --ink: #aaaaaa;
+  --dim: #6f685c;
+  --bar: #0000aa;
+  --bar-ink: #ffffff;
+  --bar-hi: #ffff55;
+  --term: "VT323", "Courier New", monospace;
+  --c0:#000000; --c1:#0000aa; --c2:#00aa00; --c3:#00aaaa; --c4:#aa0000; --c5:#aa00aa; --c6:#aa5500; --c7:#aaaaaa;
+  --c8:#555555; --c9:#5555ff; --c10:#55ff55; --c11:#55ffff; --c12:#ff5555; --c13:#ff55ff; --c14:#ffff55; --c15:#ffffff;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--desk);
+  color: var(--ink);
+  font-family: var(--term);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 12px;
+  display: flex;
+}
+#app { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; max-width: 1180px; margin: 0 auto; }
+.top { display: flex; justify-content: space-between; gap: 12px; color: var(--dim); font-size: 18px; letter-spacing: .06em; text-transform: uppercase; }
+.top b { color: #c9bfa9; font-weight: normal; }
+#bezel {
+  flex: 1; min-height: 0; display: flex; padding: 14px; border-radius: 18px;
+  background: linear-gradient(180deg, var(--bezel-hi), var(--bezel));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 30px rgba(0,0,0,.5);
+}
+#crt {
+  position: relative; flex: 1; min-width: 0; min-height: 0; border-radius: 12px; overflow: hidden;
+  background: radial-gradient(ellipse at center, #0b0b0b 0%, var(--screen) 75%);
+  box-shadow: inset 0 0 40px rgba(0,0,0,.9), inset 0 0 2px rgba(255,255,255,.15);
+  cursor: text;
+}
+#scroll { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; padding: 12px; scrollbar-width: thin; scrollbar-color: #333 transparent; }
+#scr {
+  margin: 0 auto; width: max-content; max-width: 100%;
+  font-family: var(--term); font-size: 20px; line-height: 1.05;
+  white-space: pre; color: var(--c7);
+  text-shadow: 0 0 2px rgba(255,255,255,.18), 0 0 6px rgba(120,160,255,.08);
+}
+#crt::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 12px;
+  background: repeating-linear-gradient(180deg, rgba(0,0,0,.22) 0 1px, transparent 1px 3px);
+}
+.f0{color:var(--c0)}.f1{color:var(--c1)}.f2{color:var(--c2)}.f3{color:var(--c3)}.f4{color:var(--c4)}.f5{color:var(--c5)}.f6{color:var(--c6)}.f7{color:var(--c7)}
+.f8{color:var(--c8)}.f9{color:var(--c9)}.f10{color:var(--c10)}.f11{color:var(--c11)}.f12{color:var(--c12)}.f13{color:var(--c13)}.f14{color:var(--c14)}.f15{color:var(--c15)}
+.b1{background:var(--c1)}.b2{background:var(--c2)}.b3{background:var(--c3)}.b4{background:var(--c4)}.b5{background:var(--c5)}.b6{background:var(--c6)}.b7{background:var(--c7)}
+.hk { cursor: pointer; border-radius: 2px; }
+.hk .k { color: var(--c14); }
+.hk .br { color: var(--c8); }
+.hk:not(.stale):hover, .hk:not(.stale):focus-visible { background: var(--c1); outline: none; }
+.hk:not(.stale):hover .k { color: var(--c15); }
+.hk.stale { cursor: inherit; }
+.hk.stale .k { color: inherit; }
+.cur { display: inline-block; width: 1ch; color: var(--c7); animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+#kbd { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; font-size: 16px; }
+#bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0 14px; padding: 2px 10px;
+  background: var(--bar); color: var(--bar-ink); font-size: 19px; line-height: 1.3;
+}
+#bar .sep { color: #5555ff; }
+#bar .hi { color: var(--bar-hi); }
+#bar .grow { flex: 1; }
+#bar button {
+  font: inherit; color: var(--bar-ink); background: #000080; border: 0; padding: 0 8px; cursor: pointer;
+  box-shadow: inset 1px 1px 0 #5555ff, inset -1px -1px 0 #000040;
+}
+#bar button:hover, #bar button:focus-visible { background: #00aaaa; color: #000; outline: none; }
+#bar .on { color: var(--bar-hi); }
+@media (max-width: 560px) {
+  body { padding-block: 6px; }
+  #bezel { padding: 6px; border-radius: 12px; }
+  #scroll { padding: 6px; }
+  .top { font-size: 15px; }
+  #bar { font-size: 16px; gap: 0 8px; }
+  .wide { display: none; }
+}
+#keys { display: none; gap: 6px; flex-wrap: wrap; }
+@media (pointer: coarse), (max-width: 700px) { #keys:not([hidden]) { display: flex; } }
+#keys button {
+  font: inherit; font-size: 19px; color: var(--c15); background: #1d1a15; border: 1px solid #4a4235; border-radius: 4px;
+  padding: 6px 10px; min-height: 40px; cursor: pointer; flex: 1 1 auto; text-align: left;
+}
+#keys button b { color: var(--c14); font-weight: normal; margin-right: 6px; }
+#keys button:active, #keys button:focus-visible { background: var(--c1); outline: none; }
+@media (prefers-reduced-motion: reduce) { .cur { animation: none; } }
+</style>
+
+<div id="app">
+  <div class="top"><span><b>SEPTIC.FON</b> &middot; DOS terminal</span><span>tap a [key] or type</span></div>
+  <div id="bezel">
+    <div id="crt">
+      <div id="scroll"><pre id="scr" aria-live="polite"></pre></div>
+      <input id="picker" type="file" hidden>
+      <input id="kbd" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Terminal keyboard input">
+    </div>
+  </div>
+  <div id="keys" hidden></div>
+  <div id="bar">
+    <span id="st-mode" class="hi">OFFLINE</span><span class="sep">&#9474;</span>
+    <span class="wide" id="st-user">ANSI-BBS</span><span class="sep wide">&#9474;</span>
+    <span>14400 N81</span><span class="sep">&#9474;</span>
+    <span id="st-node">NODE --</span><span class="sep">&#9474;</span>
+    <span id="st-time">00:00:00</span>
+    <span class="grow"></span>
+    <button id="b-snd" type="button">SND <span class="on">ON</span></button>
+    <button id="b-hang" type="button" hidden>HANG UP</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+// The Septic Tankz — terminal client. Talks to the board server at API.
+
+// ---------------------------------------------------------------- config
+const API = (((document.querySelector('meta[name="bbs-api"]') || {}).content) || "").replace(/^\/\*.*\*\/$/, "").replace(/\/$/, "");
+const PHONE = "1-617-555-8265";
+const CPS = 1440;                 // 14.4k ≈ 1440 chars/sec
+const IDLE_LIMIT_MIN = 5;
+const ART = {"logo_main": ["|08       - = [ |14t h e|08 ] = -", "|15       _____ ___________ _____ _ _____   _____ ___   _   _  _   __ ______", "|11      /  ___|  ___| ___ \\_   _(_)  __ \\ |_   _/ _ \\ | \\ | || | / /|___  /", "|11      \\ `--.| |__ | |_/ / | |  _| /  \\/   | |/ /_\\ \\|  \\| || |/ /    / /", "|03       `--. \\  __||  __/  | | | | |       | ||  _  || . ` ||    \\   / /", "|03      /\\__/ / |___| |     | | | | \\__/\\   | || | | || |\\  || |\\  \\./ /___", "|01      \\____/\\____/\\_|     \\_/ |_|\\____/   \\_/\\_| |_/\\_| \\_/\\_| \\_/\\_____/"], "logo_elite": ["|13 @@@@@@@  @@@@@@@@   @@@@@@    @@@@@@   @@@@@@@    @@@@@@    @@@@@@   @@@", "|13@@@@@@@@  @@@@@@@@  @@@@@@@   @@@@@@@   @@@@@@@@  @@@@@@@@  @@@@@@@@  @@@", "|05!@@       @@!       !@@       !@@       @@!  @@@  @@!  @@@  @@!  @@@  @@!", "|05!@!       !@!       !@!       !@!       !@!  @!@  !@!  @!@  !@!  @!@  !@!", "|12!@!       @!!!:!    !!@@!!    !!@@!!    @!@@!@!   @!@  !@!  @!@  !@!  @!!", "|12!!!       !!!!!:     !!@!!!    !!@!!!   !!@!!!    !@!  !!!  !@!  !!!  !!!", "|04:!!       !!:            !:!       !:!  !!:       !!:  !!!  !!:  !!!  !!:", "|04:!:       :!:           !:!       !:!   :!:       :!:  !:!  :!:  !:!   :!:", "|08 ::: :::   :: ::::  :::: ::   :::: ::    ::       ::::: ::  ::::: ::   :: ::::", "|08 :: :: :  : :: ::   :: : :    :: : :     :         : :  :    : :  :   : :: : :"], "tank": ["|08 FROM HOUSE                                               TO LEACH FIELD", "|08 |07==========.|08      _[_]_                       _[_]_      |07.=============>", "|08           |07||08     |     |                     |     |     |07|", "|08  .--------|07||08-----'     '---------------------'     '-----|07||08---------.", "|08  |        |07||08  |06^^^^^^^^^^^^^^|08 |06S|08 |06C|08 |06U|08 |06M|08 |06^^^^^^^^^^^^^^^^^^|08  |07||08         |", "|08  |        |07'|08                                             |07'|08         |", "|08  |    |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08   |03E|08 |03F|08 |03F|08 |03L|08 |03U|08 |03E|08 |03N|08 |03T|08   |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08         |", "|08  |                                                                |", "|08  |  |06##########|08  |06S|08 |06L|08 |06U|08 |06D|08 |06G|08 |06E|08  |06###############################|08      |", "|08  '----------------------------------------------------------------'"], "toilet": ["|07              ____________", "|07             |  |15SEPTIC|07    |      |08Thanks for calling", "|07             |__|15TANKZ|07____|      |15THE SEPTIC TANKZ", "|07               |      |", "|07          .----'------'----.        |08Remember: only flush", "|07         (                  )       |08what you've uploaded.", "|07          '.              .'", "|07            '----.  .----'          |11Call back soon.", "|07                 |  |", "|07               __|__|__"]};
+
+// ---------------------------------------------------------------- dom
+const $ = id => document.getElementById(id);
+const scr = $("scr"), scroll = $("scroll"), crt = $("crt"), kbd = $("kbd"), picker = $("picker");
+const stMode = $("st-mode"), stNode = $("st-node"), stTime = $("st-time"), stUser = $("st-user");
+const bSnd = $("b-snd"), bHang = $("b-hang"), keysEl = $("keys");
+const live = document.createElement("span");
+scr.appendChild(live);
+
+// ---------------------------------------------------------------- fit 80 columns
+let charRatio = 0.5;
+function measure() {
+  const p = document.createElement("span");
+  p.style.cssText = "position:absolute;visibility:hidden;white-space:pre;font-size:100px;font-family:" + getComputedStyle(scr).fontFamily;
+  p.textContent = "M".repeat(80);
+  document.body.appendChild(p);
+  charRatio = p.getBoundingClientRect().width / 100;
+  p.remove();
+}
+function fit() {
+  const w = scroll.clientWidth - 2 * parseFloat(getComputedStyle(scroll).paddingLeft) - 2;
+  scr.style.fontSize = Math.max(6, Math.min(26, w / charRatio)).toFixed(2) + "px";
+}
+measure(); fit();
+if (document.fonts) document.fonts.load("20px VT323").then(() => { measure(); fit(); }).catch(() => {});
+new ResizeObserver(fit).observe(scroll);
+
+// ---------------------------------------------------------------- abortable session plumbing
+class Hangup extends Error {}
+class BoardError extends Error {}
+const pending = new Set();
+function track(executor) {
+  return new Promise((res, rej) => {
+    const entry = { rej };
+    pending.add(entry);
+    executor(v => { pending.delete(entry); res(v); }, e => { pending.delete(entry); rej(e); }, entry);
+  });
+}
+function sleep(ms) {
+  return track((res, rej, entry) => { const t = setTimeout(res, ms); entry.cancel = () => clearTimeout(t); });
+}
+
+// ---------------------------------------------------------------- terminal output
+let Q = [], drainers = [], running = false, fast = false, lastT = 0;
+let curNode = null, curCls = "", gen = 0, fg = 7, bg = 0;
+
+function parse(str) {
+  const ops = [];
+  let buf = "";
+  const flush = () => { if (buf) { ops.push({ text: buf, fg, bg }); buf = ""; } };
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (ch === "|" && /\d\d/.test(str.substr(i + 1, 2))) {
+      flush();
+      const n = +str.substr(i + 1, 2);
+      if (n < 16) fg = n; else if (n < 24) bg = n - 16;
+      i += 2; continue;
+    }
+    if (ch === "{" && str[i + 2] === "}" && str[i + 1] !== undefined) {
+      flush(); ops.push({ hk: str[i + 1].toUpperCase(), fg, bg }); i += 2; continue;
+    }
+    buf += ch;
+  }
+  flush();
+  return ops;
+}
+function cls() { Q.push({ cls: true }); }
+function kick() { if (!running) { running = true; lastT = performance.now(); requestAnimationFrame(step); } }
+function out(str) {
+  Q.push(...parse(str));
+  kick();
+  return track((res, rej, entry) => drainers.push({ res, entry }));
+}
+function outNow(str) { for (const op of parse(str)) appendOp(op); scrollDown(); }
+function appendText(text, f, b) {
+  const c = "f" + f + (b ? " b" + b : "");
+  if (curNode && curCls === c && curNode.parentNode && curNode.parentNode.nextSibling === live) {
+    curNode.appendData(text);
+  } else {
+    const s = document.createElement("span");
+    s.className = c;
+    curNode = document.createTextNode(text);
+    s.appendChild(curNode);
+    scr.insertBefore(s, live);
+    curCls = c;
+  }
+}
+function appendOp(op) {
+  if (op.cls) { while (scr.firstChild !== live) scr.removeChild(scr.firstChild); curNode = null; return 0; }
+  if (op.el) { scr.insertBefore(op.el, live); curNode = null; return 1; }
+  if (op.hk) {
+    const s = document.createElement("span");
+    s.className = "hk"; s.dataset.k = op.hk; s.dataset.g = gen; s.setAttribute("role", "button");
+    s.innerHTML = '<span class="br">[</span><span class="k"></span><span class="br">]</span>';
+    s.querySelector(".k").textContent = op.hk;
+    scr.insertBefore(s, live); curNode = null;
+    return 3;
+  }
+  appendText(op.text, op.fg, op.bg);
+  return op.text.length;
+}
+function step(t) {
+  let budget = fast ? 1e9 : Math.max(1, Math.round((t - lastT) / 1000 * CPS));
+  lastT = t;
+  while (budget > 0 && Q.length) {
+    const op = Q[0];
+    if (op.text !== undefined && op.text.length > budget) {
+      appendText(op.text.slice(0, budget), op.fg, op.bg);
+      op.text = op.text.slice(budget); budget = 0;
+    } else { budget -= appendOp(op); Q.shift(); }
+  }
+  while (scr.childNodes.length > 4000) scr.removeChild(scr.firstChild);
+  scrollDown();
+  if (Q.length) requestAnimationFrame(step);
+  else {
+    running = false; fast = false;
+    const d = drainers; drainers = [];
+    d.forEach(x => { pending.delete(x.entry); x.res(); });
+    if (want) Promise.resolve().then(drainTypeahead);
+  }
+}
+function scrollDown() { scroll.scrollTop = scroll.scrollHeight; }
+function outEl(cssClass) {
+  const s = document.createElement("span"); s.className = cssClass || "f7";
+  Q.push({ el: s }); kick();
+  return track((res, rej, entry) => drainers.push({ res: () => res(s), entry })).then(() => s);
+}
+
+// ---------------------------------------------------------------- input
+let want = null, lastInput = Date.now();
+function renderLive() {
+  live.textContent = "";
+  if (want && want.type === "line") {
+    const t = document.createElement("span"); t.className = "f15";
+    t.textContent = want.mask ? "*".repeat(want.buf.length) : want.buf;
+    live.appendChild(t);
+  }
+  const c = document.createElement("span"); c.className = "cur"; c.textContent = "_";
+  live.appendChild(c);
+  scrollDown();
+  updateKeys();
+}
+function updateKeys() {
+  keysEl.textContent = "";
+  const add = (k, label, fn) => {
+    const b = document.createElement("button"); b.type = "button";
+    if (k) { const kb = document.createElement("b"); kb.textContent = k; b.appendChild(kb); }
+    b.appendChild(document.createTextNode(label));
+    b.addEventListener("click", fn); keysEl.appendChild(b);
+  };
+  if (want && want.type === "line") { add("", "Tap to type", () => kbd.focus()); add("", "ENTER", () => feed("\r")); }
+  else if (want && !want.keys) add("", "Continue", () => feed(" "));
+  else if (want) {
+    const seen = new Set();
+    scr.querySelectorAll(".hk:not(.stale)").forEach(h => {
+      const k = h.dataset.k;
+      if (+h.dataset.g !== gen || seen.has(k) || !want.keys.has(k)) return;
+      seen.add(k);
+      let txt = "", n = h.nextSibling;
+      while (n && n !== live && !(n.classList && n.classList.contains("hk")) && txt.length < 60) { txt += n.textContent; n = n.nextSibling; }
+      const label = (txt.split(/\s{2,}|\n/).map(x => x.trim()).filter(Boolean)[0] || "").slice(0, 24);
+      add(k, label, () => feed(k));
+    });
+  }
+  keysEl.hidden = !keysEl.children.length;
+}
+renderLive();
+function staleHotkeys() { gen++; scr.querySelectorAll(".hk:not(.stale)").forEach(h => h.classList.add("stale")); }
+function readKey(keys, opts = {}) {
+  return track((res, rej, entry) => {
+    want = { type: "key", keys: keys ? new Set(keys.toUpperCase().split("")) : null, enter: opts.enter, sync: opts.sync, res: k => { staleHotkeys(); res(k); }, entry };
+    renderLive();
+    drainTypeahead();
+  });
+}
+function anyKey(msg) {
+  return out(msg || "\n|08[|07press any key|08]").then(() => readKey(null)).then(() => outNow("\n"));
+}
+function readLine(opts = {}) {
+  return track((res, rej, entry) => {
+    want = { type: "line", buf: opts.value || "", max: opts.max || 40, mask: !!opts.mask, upper: !!opts.upper, res, entry };
+    renderLive();
+    if (!matchMedia("(pointer: coarse)").matches) kbd.focus({ preventScroll: true });
+    drainTypeahead();
+  });
+}
+// Keys typed while text is still scrolling (or the board is thinking) are kept, like a real typeahead buffer.
+let typeahead = [];
+function drainTypeahead() { while (typeahead.length && want && !running) feed(typeahead.shift(), true); }
+function feed(ch, fromBuffer) {
+  if (!fromBuffer) { lastInput = Date.now(); A.ensure(); }
+  if (running || !want) {
+    if (running) fast = true;
+    if (!fromBuffer && typeahead.length < 64) typeahead.push(ch);
+    return;
+  }
+  const w = want;
+  if (w.type === "key") {
+    const k = ch === "\r" ? "\r" : ch.toUpperCase();
+    if (!w.keys || w.keys.has(k) || (k === "\r" && w.enter)) {
+      const final = k === "\r" && w.enter ? w.enter : k;
+      // Some keys must act inside the keypress itself (browsers only open a file picker from a real gesture).
+      if (w.sync && w.sync[final]) { if (fromBuffer) return; w.sync[final](); }
+      want = null; renderLive(); w.res(final);
+    }
+    return;
+  }
+  if (ch === "\r") { want = null; outNow("|15" + (w.mask ? "*".repeat(w.buf.length) : esc(w.buf)) + "|07\n"); renderLive(); w.res(w.buf); return; }
+  if (ch === "\b") { w.buf = w.buf.slice(0, -1); renderLive(); return; }
+  if (ch === "\x1b") return;
+  if (ch.length === 1 && ch >= " " && w.buf.length < w.max) { w.buf += w.upper ? ch.toUpperCase() : ch; renderLive(); }
+}
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target && e.target.tagName === "BUTTON" && (e.key === "Enter" || e.key === " ")) return;
+  if (e.key === "Enter") { e.preventDefault(); feed("\r"); }
+  else if (e.key === "Backspace") { e.preventDefault(); feed("\b"); }
+  else if (e.key === "Escape") { feed("\x1b"); }
+  else if (e.key && e.key.length === 1) { e.preventDefault(); feed(e.key); }
+});
+kbd.addEventListener("input", () => { const v = kbd.value; kbd.value = ""; for (const ch of v) feed(ch); });
+crt.addEventListener("click", e => {
+  const hk = e.target.closest(".hk");
+  if (hk && !hk.classList.contains("stale") && +hk.dataset.g === gen) { feed(hk.dataset.k); return; }
+  if (want && want.type === "key" && !want.keys) { feed(" "); return; }
+  if (running) fast = true;
+  kbd.focus({ preventScroll: true });
+});
+
+// Text helpers. esc(): plain text, no colors. uc(): user text, pipe colors |00-|15 allowed.
+function esc(s) { return String(s ?? "").replace(/\|/g, "!").replace(/[{}]/g, "").replace(/[\x00-\x09\x0b-\x1f]/g, ""); }
+function uc(s) { return String(s ?? "").replace(/\|(?!(0\d|1[0-5]))/g, "!").replace(/[{}]/g, "").replace(/[\x00-\x09\x0b-\x1f]/g, "") + "|07"; }
+function pad(s, n) { s = String(s); return s.length >= n ? s.slice(0, n) : s + " ".repeat(n - s.length); }
+function lpad(s, n) { s = String(s); return s.length >= n ? s : " ".repeat(n - s.length) + s; }
+function K(bytes) { return Math.ceil((bytes || 0) / 1024).toLocaleString("en-US") + "K"; }
+function d8(ms) { if (!ms) return "--/--/--"; const d = new Date(ms); return String(d.getMonth() + 1).padStart(2, "0") + "/" + String(d.getDate()).padStart(2, "0") + "/" + String(d.getFullYear()).slice(-2); }
+function hm(ms) { const d = new Date(ms); let h = d.getHours(); const ap = h >= 12 ? "pm" : "am"; h = h % 12 || 12; return h + ":" + String(d.getMinutes()).padStart(2, "0") + ap; }
+function wrap(s, n = 76) {
+  return String(s).split("\n").map(par => {
+    const words = par.split(" "), lines = []; let l = "";
+    for (const w of words) { if ((l + " " + w).trim().length > n && l) { lines.push(l); l = w; } else l = l ? l + " " + w : w; }
+    lines.push(l); return lines.join("\n");
+  }).join("\n");
+}
+function rule(c, ch, n) { return "|" + String(c).padStart(2, "0") + (ch || "-").repeat(n || 78) + "|07\n"; }
+async function art(name) { await out(ART[name].join("\n") + "\n|07"); }
+
+// ---------------------------------------------------------------- audio (modem noises)
+const A = {
+  ctx: null, master: null, on: true,
+  ensure() {
+    if (!this.ctx) {
+      try {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.master = this.ctx.createGain(); this.master.gain.value = 0.12; this.master.connect(this.ctx.destination);
+      } catch (e) { this.ctx = null; }
+    }
+    if (this.ctx && this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+  },
+  ready() { return this.on && this.ctx && this.ctx.state === "running"; },
+  cut() { if (this.ctx && this.master) { this.master.disconnect(); this.master = this.ctx.createGain(); this.master.gain.value = 0.12; this.master.connect(this.ctx.destination); } },
+  tone(freqs, at, dur, vol = 0.5) {
+    const c = this.ctx, t = c.currentTime + at, g = c.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.01);
+    g.gain.setValueAtTime(vol, t + dur - 0.015); g.gain.linearRampToValueAtTime(0, t + dur);
+    g.connect(this.master);
+    freqs.forEach(f => { const o = c.createOscillator(); o.frequency.value = f; o.connect(g); o.start(t); o.stop(t + dur + 0.05); });
+  },
+  noise(at, dur, freq, q, vol) {
+    const c = this.ctx, t = c.currentTime + at, len = Math.ceil(c.sampleRate * dur);
+    const buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const s = c.createBufferSource(); s.buffer = buf;
+    const f = c.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
+    const g = c.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.03); g.gain.setValueAtTime(vol, t + dur - 0.05); g.gain.linearRampToValueAtTime(0, t + dur);
+    s.connect(f); f.connect(g); g.connect(this.master); s.start(t); s.stop(t + dur + 0.05);
+  },
+  async play(fn, dur) { if (this.ready()) fn(); await sleep(dur * 1000); },
+  dialTone() { return this.play(() => this.tone([350, 440], 0, 0.7, 0.35), 0.75); },
+  dtmf(num) {
+    const R = [697, 770, 852, 941], C = [1209, 1336, 1477];
+    const map = { 1: [0, 0], 2: [0, 1], 3: [0, 2], 4: [1, 0], 5: [1, 1], 6: [1, 2], 7: [2, 0], 8: [2, 1], 9: [2, 2], 0: [3, 1] };
+    const digits = num.replace(/\D/g, "").split("");
+    return this.play(() => digits.forEach((d, i) => this.tone([R[map[d][0]], C[map[d][1]]], i * 0.14, 0.08, 0.4)), digits.length * 0.14 + 0.2);
+  },
+  ring() { return this.play(() => this.tone([440, 480], 0, 1.1, 0.3), 2.1); },
+  busy() { return this.play(() => { for (let i = 0; i < 4; i++) this.tone([480, 620], i, 0.5, 0.3); }, 4); },
+  handshake() {
+    return this.play(() => {
+      this.tone([2100], 0, 1.0, 0.35);
+      this.tone([1375, 2002], 1.1, 0.35, 0.3);
+      this.tone([980], 1.5, 0.12, 0.3); this.tone([1650], 1.65, 0.12, 0.3); this.tone([980], 1.8, 0.12, 0.3);
+      this.tone([2250, 1200], 2.0, 0.45, 0.28);
+      this.noise(2.5, 1.4, 1800, 0.7, 0.9);
+      this.noise(2.6, 1.2, 600, 1.5, 0.5);
+    }, 4.0);
+  },
+};
+try { if (localStorage.getItem("tankz-snd") === "off") A.on = false; } catch (e) {}
+function paintSnd() { bSnd.innerHTML = 'SND <span class="on">' + (A.on ? "ON" : "OFF") + "</span>"; }
+paintSnd();
+bSnd.addEventListener("click", () => {
+  A.on = !A.on; A.ensure(); if (!A.on) A.cut(); paintSnd();
+  try { localStorage.setItem("tankz-snd", A.on ? "on" : "off"); } catch (e) {}
+});
+
+// ---------------------------------------------------------------- the board connection
+let token = null, myNode = 0, LINES = 1, TIME_MIN = 60, INFO = null;
+let state = "offline", onlineAt = 0;
+let S = null;             // session: { user, eliteOk, unread }
+let curAct = "Logging in", sentAct = "";
+
+function rawFetch(path, opts) {
+  return track((res, rej, entry) => {
+    const ctl = new AbortController();
+    entry.cancel = () => ctl.abort();
+    fetch(API + "/api/" + path, { method: "POST", signal: ctl.signal, ...opts }).then(res, rej);
+  });
+}
+async function api(path, body) {
+  let r, data;
+  try {
+    r = await rawFetch(path, { headers: { "content-type": "application/json", ...(token ? { "x-line": token } : {}) }, body: JSON.stringify(body || {}) });
+  } catch (e) {
+    if (e instanceof Hangup) throw e;
+    throw new BoardError("Line noise. The board didn't answer.");
+  }
+  try { data = await r.json(); } catch (e) { throw new BoardError("Garbled response from the board (" + r.status + ")."); }
+  if (data.carrier === false) { dropCarrier(data.error && data.error !== "NO CARRIER" ? "|12*** " + esc(data.error) : null); throw new Hangup(); }
+  if (!r.ok) throw new BoardError(data.error || "The board said no (" + r.status + ").");
+  return data;
+}
+function act(s) { curAct = s; beat(); }
+let lastBeat = 0;
+function beat(force) {
+  if (state !== "online" || !token) return;
+  if (!force && curAct === sentAct && Date.now() - lastBeat < 20000) return;
+  sentAct = curAct; lastBeat = Date.now();
+  const tk = token;
+  fetch(API + "/api/beat", { method: "POST", headers: { "content-type": "application/json", "x-line": tk }, body: JSON.stringify({ act: curAct }) })
+    .then(r => r.json()).then(d => { if (d.carrier === false && token === tk) dropCarrier("|12*** The board hung up on you."); }).catch(() => {});
+}
+async function guard(fn) {
+  try { await fn(); }
+  catch (e) {
+    if (e instanceof BoardError) { await out("\n|12" + esc(e.message) + "|07\n"); await anyKey(); }
+    else throw e;
+  }
+}
+
+// ---------------------------------------------------------------- session control
+let flowId = 0;
+function run(fn) {
+  const id = ++flowId;
+  fn().catch(e => {
+    if (e instanceof Hangup) return;
+    console.error(e);
+    if (id === flowId) dropCarrier("|12*** " + esc(e.message || "Line noise. Carrier lost."));
+  });
+}
+function abortAll() {
+  Q = []; running = false; fast = false; drainers = []; typeahead = [];
+  want = null; renderLive();
+  for (const p of [...pending]) { if (p.cancel) p.cancel(); p.rej(new Hangup()); }
+  pending.clear();
+  A.cut();
+}
+function setMode(m) {
+  state = m;
+  stMode.textContent = m === "online" ? "ONLINE" : m === "dialing" ? "DIALING" : "OFFLINE";
+  bHang.hidden = m === "offline";
+  if (m === "online") { onlineAt = Date.now(); lastInput = Date.now(); }
+  stNode.textContent = m === "online" ? "NODE " + myNode : "NODE --";
+  if (m !== "online") stUser.textContent = "ANSI-BBS";
+}
+function releaseLine() {
+  if (!token) return;
+  const tk = token; token = null;
+  try { fetch(API + "/api/hangup", { method: "POST", keepalive: true, headers: { "x-line": tk } }).catch(() => {}); } catch (e) {}
+}
+function dropCarrier(msg) {
+  if (state === "offline") return;
+  abortAll(); releaseLine(); setMode("offline"); S = null;
+  run(async () => {
+    if (msg) outNow("\n" + msg + "\n");
+    outNow("\n|15NO CARRIER\n");
+    await sleep(900);
+    await dialer();
+  });
+}
+bHang.addEventListener("click", () => dropCarrier("|08+++ ATH0"));
+setInterval(() => {
+  if (state !== "online") { stTime.textContent = "00:00:00"; return; }
+  const s = Math.floor((Date.now() - onlineAt) / 1000);
+  stTime.textContent = [s / 3600, (s % 3600) / 60, s % 60].map(x => String(Math.floor(x)).padStart(2, "0")).join(":");
+  if (s >= TIME_MIN * 60) dropCarrier("|12*** Your " + TIME_MIN + " minutes are up. Give somebody else a turn on the line.");
+  else if (Date.now() - lastInput > IDLE_LIMIT_MIN * 60000 && !running) dropCarrier("|12*** Inactivity timeout. Don't hog the line.");
+  else beat();
+}, 1000);
+function timeLeft() { return Math.max(0, TIME_MIN - Math.floor((Date.now() - onlineAt) / 60000)); }
+window.addEventListener("pagehide", releaseLine);
+
+// ================================================================= DIALER
+async function dialer() {
+  setMode("offline");
+  while (true) {
+    cls();
+    await out(
+      "|15 SEPTIC.FON |08- |07Dialing Directory                               |08v2.1\n" +
+      "|09+----+---------------------------+------------------+--------+-------------+\n" +
+      "|09||11 ## |09||11 " + pad("Name", 26) + "|09||11 " + pad("Number", 17) + "|09||11 " + pad("Baud", 7) + "|09||11 " + pad("Protocol", 12) + "|09|\n" +
+      "|09+----+---------------------------+------------------+--------+-------------+\n" +
+      "|09||15  1 |09||14 " + pad("The Septic Tankz", 26) + "|09||07 " + pad(PHONE, 17) + "|09||07 14400  |09||07 Zmodem      |09|\n" +
+      "|09||08  2 |09||08 " + pad("The Grease Trap", 26) + "|09||08 " + pad("[unlisted]", 17) + "|09||08 2400   |09||08 Xmodem      |09|\n" +
+      "|09||08  3 |09||08 " + pad("Mom's House (voice!)", 26) + "|09||08 " + pad("do not dial", 17) + "|09||08 --     |09||08 --          |09|\n" +
+      "|09+----+---------------------------+------------------+--------+-------------+\n\n" +
+      "|07 The Septic Tankz is a real board with real phone lines. When they're all\n" +
+      " in use you get a |12busy signal|07. Try again, or let auto-redial keep trying.\n\n" +
+      "   {D} Dial The Septic Tankz    {A} Auto-redial until it connects    {?} About\n\n" +
+      "|08 Command: |07"
+    );
+    const k = await readKey("DA?");
+    if (k === "?") { await about(); continue; }
+    if (k === "D") { if (await dial()) return board(); await anyKey("\n|08[|07press any key to return to the directory|08]"); continue; }
+    if (k === "A") {
+      for (let tries = 1; tries <= 12; tries++) {
+        outNow("\n|08Auto-redial attempt " + tries + " of 12\n");
+        if (await dial()) return board();
+        if (state === "nodial") break;
+        outNow("|08Waiting 20 seconds before the next try. Any key cancels.\n");
+        const keyP = readKey(null); keyP.catch(() => {});
+        const r = await Promise.race([sleep(20000).then(() => null), keyP]);
+        if (r) break;
+        want = null; renderLive();
+      }
+      continue;
+    }
+  }
+}
+
+async function about() {
+  cls();
+  await out(
+    "|15 About The Septic Tankz\n" + rule(8) +
+    "|07 A real dial-up style BBS. Make an account, post in the message bases,\n" +
+    " and trade files. Downloads cost credit; you earn credit by uploading.\n" +
+    " Uploads are checked by the SysOp before they go live.\n\n" +
+    " There are only a few phone lines, so calls are time-limited and idle\n" +
+    " callers get hung up on after |15" + IDLE_LIMIT_MIN + "|07 minutes.\n\n" +
+    " Tap any |14[key]|07 on screen, or type. Tap the screen to bring up a keyboard.\n" +
+    " Tapping while text is scrolling speeds it up.\n"
+  );
+  await anyKey();
+}
+
+async function dial() {
+  setMode("dialing");
+  outNow("\n");
+  await out("|07ATZ\n"); await sleep(250);
+  await out("|15OK\n"); await sleep(300);
+  await out("|07ATDT" + PHONE + "\n");
+  await A.dialTone();
+  await A.dtmf(PHONE);
+  let result = null, failed = null, settled = false;
+  rawFetch("dial", { headers: { "content-type": "application/json" }, body: "{}" })
+    .then(r => r.json()).then(d => { result = d; }).catch(e => { failed = e; }).finally(() => { settled = true; });
+  let rings = 0;
+  while ((rings < 2 || !settled) && rings < 6) { await A.ring(); rings++; }
+  if (!result || result.error) {
+    await out("|12NO DIALTONE\n|08The board isn't answering. It may not be installed yet, or the line is down.\n");
+    setMode("offline"); state = "nodial";
+    return false;
+  }
+  if (result.busy) {
+    await out("|12BUSY\n");
+    await A.busy();
+    setMode("offline");
+    return false;
+  }
+  token = result.token; myNode = result.node; LINES = result.lines; TIME_MIN = result.timeMin;
+  await A.handshake();
+  await out("|15CONNECT 14400/ARQ/V32BIS/LAPM/V42BIS\n");
+  setMode("online");
+  await sleep(400);
+  return true;
+}
+
+// ================================================================= LOGIN
+async function board() {
+  cls();
+  await out("|08Detecting ANSI... |10yes\n|08Emulation: |07ANSI-BBS  |08Node: |07" + myNode + " of " + LINES + "\n\n");
+  try { INFO = await api("info"); } catch (e) { if (e instanceof Hangup) throw e; INFO = null; }
+  await art("logo_main");
+  const d = new Date();
+  await out("\n" + rule(8) + "|07   SludgeWare BBS v0.99|08ß|07  |08*|07  Nodes: |15" + LINES + "|07  |08*|07  " +
+    d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) + "\n" + rule(8));
+  if (INFO) {
+    await out("|08   Users |15" + INFO.users + "   |08Files |15" + INFO.files + " |08(" + K(INFO.bytes) + ")   |08Messages |15" + INFO.posts +
+      "   |08Calls |15" + INFO.callers + "\n\n");
+  }
+  await art("tank");
+  if (INFO && INFO.fresh) await out("\n|14 Fresh install. |07The first account created becomes the |15SysOp|07.\n");
+  for (let tries = 0; tries < 6 && !S; tries++) {
+    await out("\n|07Enter your handle, or |14NEW|07: |15");
+    const h = (await readLine({ max: 30 })).trim();
+    if (!h) continue;
+    if (h.toUpperCase() === "NEW") { await guard(newUser); continue; }
+    await out("|07Password: ");
+    const p = await readLine({ max: 64, mask: true });
+    let r;
+    try { r = await api("login", { handle: h, password: p }); }
+    catch (e) { if (e instanceof BoardError) { await out("|12" + esc(e.message) + "\n"); continue; } throw e; }
+    if (r.backdoor) return cesspoolGate();
+    S = r;
+  }
+  if (!S) { await out("|12Goodbye.\n"); return dropCarrier(); }
+  return lobby();
+}
+
+async function newUser() {
+  act("New user signup");
+  cls();
+  const ru = INFO ? INFO.rules : { mainRatio: 5, startCredit: 2097152 };
+  await out("|11 New User Application\n" + rule(3) +
+    "|07 Pick a handle (what everyone sees) and a password. New users start\n" +
+    " with |15" + K(ru.startCredit) + "|07 of download credit and earn |15" + ru.mainRatio + "x|07 credit for every\n" +
+    " byte they upload once the SysOp validates it.\n\n");
+  await out("|07Handle (2-20 characters): |15");
+  const handle = (await readLine({ max: 20 })).trim();
+  if (!handle) return;
+  await out("|07Password: ");
+  const p1 = await readLine({ max: 64, mask: true });
+  await out("|07Password again: ");
+  const p2 = await readLine({ max: 64, mask: true });
+  if (p1 !== p2) { await out("|12Passwords don't match. Start over.\n"); return; }
+  await out("|07City, State: |15");
+  const location = (await readLine({ max: 30 })).trim();
+  const r = await api("newuser", { handle, password: p1, location });
+  S = r;
+  await out("\n|10Account created. Welcome to the tank, |15" + esc(r.user.handle) + "|10.\n");
+  if (r.sysop) await out("|14You're the first caller ever. You are now the |15SysOp|14 (access level 255).\n|07Use |14[!]|07 on the main menu for the SysOp console.\n");
+  await anyKey();
+}
+
+// ================================================================= MAINSTREAM SIDE
+function refreshStatus() { if (S) stUser.textContent = S.user.handle.toUpperCase().slice(0, 16); }
+async function refreshMe() { const r = await api("me"); S.user = r.user; S.unread = r.unread; refreshStatus(); return r; }
+
+async function lobby() {
+  refreshStatus();
+  act("Reading bulletins");
+  await out("\n|10Welcome, |15" + esc(S.user.handle) + "|10!  |07This is call |15#" + S.user.calls + "|07 for you.\n");
+  if (S.lastCall) await out("|08Last on " + d8(S.lastCall) + " at " + hm(S.lastCall) + ".\n");
+  await out(S.unread ? "|14You have " + S.unread + " new e-mail message" + (S.unread > 1 ? "s" : "") + ".\n" : "|08No new mail.\n");
+  await sleep(300);
+  await guard(() => oneliners(true));
+  return mainMenu();
+}
+
+async function mainMenu() {
+  while (true) {
+    act("Main menu");
+    cls();
+    const u = S.user;
+    await out(
+      "|09.----------------------------------------------------------------------------.\n" +
+      "|09|  |11T H E   S E P T I C   T A N K Z    |03// |07main menu" + " ".repeat(27) + "|09|\n" +
+      "|09'----------------------------------------------------------------------------'\n\n" +
+      "|07   {M} Message Bases        {F} File Areas           {E} E-mail" + (S.unread ? " |14(" + S.unread + " new)" : "") + "\n" +
+      "|07   {B} Bulletins            {D} Door Games           {O} One-Liners\n" +
+      "|07   {W} Who's Online         {L} Last Callers         {U} User List\n" +
+      "|07   {Y} Your Stats           {C} Comment to SysOp     {G} Goodbye (log off)\n" +
+      (u.sysop ? "|07   {!} |14SysOp Console\n" : "") + "\n" +
+      "|08[|07" + esc(u.handle) + "|08] |03Main |08(|07credit " + K(u.credit_main) + ", " + timeLeft() + "m left|08) |15Command: |07"
+    );
+    const k = await readKey("MFEBDOWLUYCG" + (u.sysop ? "!" : ""));
+    if (k === "M") await guard(() => messageBases("main"));
+    else if (k === "F") await guard(() => fileAreas("main"));
+    else if (k === "E") await guard(email);
+    else if (k === "B") await bulletins();
+    else if (k === "D") await doors();
+    else if (k === "O") await guard(() => oneliners(false));
+    else if (k === "W") await guard(whoScreen);
+    else if (k === "L") await guard(() => lastCallers("main"));
+    else if (k === "U") await guard(userList);
+    else if (k === "Y") await guard(yourStats);
+    else if (k === "C") await guard(() => composePost({ id: 5, name: "SysOp Feedback" }, null, "SysOp"));
+    else if (k === "!") await guard(sysopConsole);
+    else if (k === "G") { if (await goodbye()) return; }
+  }
+}
+
+async function goodbye() {
+  await out("\n|07Log off? {Y} Yes  {N} No |15");
+  const k = await readKey("YN");
+  if (k === "N") return false;
+  cls();
+  await art("toilet");
+  await out("\n|08Time online: |07" + stTime.textContent + "   |08Downloads: |07" + S.user.dl_files + "   |08Uploads: |07" + S.user.ul_files + "\n\n");
+  await sleep(1200);
+  dropCarrier("|08+++ ATH0");
+  return true;
+}
+
+async function whoScreen() {
+  act("Who's online");
+  const r = await api("who");
+  cls();
+  await out("|11 Who's Online\n" + rule(3) + "|08 Node  Handle                 Doing\n|08 ----  ---------------------  ------------------------------\n");
+  for (let n = 1; n <= r.lines; n++) {
+    const u = r.nodes.find(x => x.node === n);
+    if (u) await out("|15 " + lpad(n, 3) + "   |14" + pad(esc(u.handle), 22) + " |07" + esc(u.activity) + (u.you ? " |08(you)" : "") + "\n");
+    else await out("|08 " + lpad(n, 3) + "   " + pad("-- waiting for caller --", 22) + "\n");
+  }
+  await anyKey();
+}
+
+async function yourStats() {
+  act("Checking stats");
+  const r = await refreshMe();
+  const u = r.user, ru = r.rules;
+  cls();
+  await out(
+    "|11 Your Stats\n" + rule(3) +
+    "|07 Handle ............ |15" + esc(u.handle) + "\n" +
+    "|07 From .............. |15" + esc(u.location || "(somewhere)") + "\n" +
+    "|07 Access level ...... |15" + u.level + (u.sysop ? " (SysOp)" : "") + "\n" +
+    "|07 Member since ...... |15" + d8(u.created_at) + "\n" +
+    "|07 Calls ............. |15" + u.calls + "\n" +
+    "|07 Messages posted ... |15" + u.posts + "\n\n" +
+    "|07 Uploaded .......... |15" + u.ul_files + " file(s), " + K(u.ul_bytes) + "\n" +
+    "|07 Downloaded ........ |15" + u.dl_files + " file(s), " + K(u.dl_bytes) + "\n" +
+    "|07 U/D ratio ......... |15" + (u.dl_bytes ? (u.ul_bytes / u.dl_bytes).toFixed(2) : u.ul_bytes ? "all up, no down" : "--") + "\n\n" +
+    "|07 Download credit ... |14" + K(u.credit_main) + "|07  (earn " + ru.mainRatio + "x what you upload)\n" +
+    (S.eliteOk ? "|07 Cesspool credit ... |13" + K(u.credit_elite) + "|07  (earn " + ru.eliteRatio + "x what you upload there)\n" : "") +
+    "|07 Max upload ........ |15" + K(ru.maxUpload) + " per file, " + K(ru.dailyUpload) + " per day\n" +
+    "|07 Time left ......... |15" + timeLeft() + " minutes\n"
+  );
+  await anyKey();
+}
+
+async function userList() {
+  act("User list");
+  const r = await api("userlist");
+  await pager("|11 User List  |08(" + r.rows.length + " users)\n" + rule(3) +
+    "|08 Handle               From                      Calls   UL   DL  Last on\n",
+    r.rows.map(u => "|14 " + pad(esc(u.handle), 20) + " |07" + pad(esc(u.location), 25) + lpad(u.calls, 6) + lpad(u.ul_files, 5) + lpad(u.dl_files, 5) + "  |08" + d8(u.last_call)));
+}
+
+// Shows rows a screenful at a time.
+async function pager(header, rows, per = 15) {
+  for (let i = 0; ; i += per) {
+    cls();
+    await out(header + (rows.length ? rows.slice(i, i + per).join("\n") + "\n" : "|08 (nothing here yet)\n"));
+    if (i + per >= rows.length) { await anyKey(); return; }
+    await out("\n|07More? {Y} Yes  {N} No |15");
+    if ((await readKey("YN", { enter: "Y" })) === "N") { outNow("\n"); return; }
+  }
+}
+
+// ---------------------------------------------------------------- bulletins
+function bulletinList() {
+  const ru = INFO ? INFO.rules : { mainRatio: 5, eliteRatio: 3, startCredit: 2097152, maxUpload: 52428800 };
+  return [
+    ["Board rules", [
+      "1. Be decent. Lamers, flamers and narcs get deleted without ceremony.",
+      "2. No ALL CAPS in the message bases. We can hear you fine.",
+      "3. There are only |15" + LINES + "|07 phone line" + (LINES > 1 ? "s" : "") + ". Log off when you're done.",
+      "4. Upload something now and then. Leeches get flushed.",
+      "5. No viruses, no trojans, nothing illegal, nothing you don't have the",
+      "   right to share. Uploads are checked by hand before they go live.",
+    ]],
+    ["How ratios work here", [
+      "New users start with |15" + K(ru.startCredit) + "|07 of download credit.",
+      "Every byte you upload earns |15" + ru.mainRatio + "|07 bytes of credit once the SysOp validates it.",
+      "Files marked |10FREE|07 cost nothing. Reading text files on-line is always free.",
+      "Max upload: |15" + K(ru.maxUpload) + "|07 per file.",
+      "",
+      "Check |14[Y] Your Stats|07 on the main menu any time.",
+    ]],
+    ["Why is the line always busy?", [
+      "Because this board has " + LINES + " phone line" + (LINES > 1 ? "s" : "") + ". If you get a busy signal, try again",
+      "in a few minutes, or use auto-redial from your terminal's dialing",
+      "directory. Calls are capped at " + TIME_MIN + " minutes and idle callers get dropped.",
+    ]],
+    ["Septic facts (the SysOp insists)", [
+      "* A septic tank separates waste into three layers: |06scum|07 on top,",
+      "  |03effluent|07 in the middle, and |06sludge|07 on the bottom.",
+      "* Only the middle layer flows out to the leach field.",
+      "* Most households pump the tank every 3 to 5 years.",
+      "* Do not flush floppy disks. You know who you are.",
+    ]],
+  ];
+}
+async function bulletins() {
+  const B = bulletinList();
+  while (true) {
+    act("Reading bulletins");
+    cls();
+    await out("|11 Bulletins\n" + rule(3));
+    for (let i = 0; i < B.length; i++) await out("|07   {" + (i + 1) + "} " + B[i][0] + "\n");
+    await out("\n|07   {Q} Back to main menu\n\n|08Read which bulletin? |07");
+    const k = await readKey("1234Q");
+    if (k === "Q") return;
+    const b = B[+k - 1];
+    cls();
+    await out("|14 Bulletin #" + k + ": |15" + b[0] + "\n" + rule(8) + "|07 " + b[1].join("\n|07 ") + "\n");
+    await anyKey();
+  }
+}
+
+// ---------------------------------------------------------------- one-liners & callers
+async function oneliners(atLogin) {
+  act("One-liners");
+  const r = await api("oneliners");
+  if (!atLogin) cls();
+  await out("\n|13 -=[ |15The One-Liner Wall |13]=-\n" + rule(5));
+  if (!r.rows.length) await out("|08 Nobody's written on the wall yet. Be the first.\n");
+  for (const x of r.rows) await out("|14 " + pad(esc(x.handle), 16) + "|07" + uc(x.text) + "\n");
+  await out(rule(5) + "|07Add a one-liner? {Y} Yes  {N} No |15");
+  const k = await readKey("YN", { enter: "N" });
+  if (k === "Y") {
+    await out("\n|08(pipe codes like |07!12|08 for color work here)\n|07> |15");
+    const t = (await readLine({ max: 60 })).trim();
+    if (t) { await api("oneliners", { text: t }); await out("|10Scrawled on the wall.\n"); await sleep(400); }
+  } else outNow("\n");
+}
+async function lastCallers(side) {
+  act("Last callers");
+  const r = await api("callers", { side });
+  cls();
+  await out((side === "elite" ? "|13" : "|11") + " Last Callers\n" + rule(side === "elite" ? 5 : 3) + "|08 Handle                 Node   When\n|08 ---------------------  ----   ------------------\n");
+  if (!r.rows.length) await out("|08 Nobody yet.\n");
+  for (const c of r.rows) await out("|14 " + pad(esc(c.handle), 22) + " |07" + lpad(c.node, 4) + "   |07" + d8(c.at) + " " + hm(c.at) + "\n");
+  await anyKey();
+}
+
+// ---------------------------------------------------------------- message bases
+async function messageBases(side) {
+  const elite = side === "elite";
+  while (true) {
+    act(elite ? "Lurking" : "Message bases");
+    const r = await api("bases", { side });
+    cls();
+    await out((elite ? "|13" : "|11") + " Message Bases\n" + rule(elite ? 5 : 3));
+    for (let i = 0; i < r.rows.length; i++) {
+      const b = r.rows[i];
+      await out("|07   {" + (i + 1) + "} " + pad(b.name, 26) + "|08" + lpad(b.msgs, 4) + " msgs" + (b.last ? "   last " + d8(b.last) : "") + "\n");
+    }
+    await out("\n|07   {Q} Back\n\n|08Which base? |07");
+    const k = await readKey("123456789".slice(0, r.rows.length) + "Q");
+    if (k === "Q") return;
+    await guard(() => readBase(r.rows[+k - 1], elite));
+  }
+}
+async function readBase(base, elite) {
+  act(elite ? "Lurking" : "Reading " + base.name);
+  let posts = (await api("posts", { base: base.id })).rows;
+  let i = posts.length - 1;
+  while (true) {
+    cls();
+    await out((elite ? "|13 " : "|11 ") + base.name + "  |08(" + posts.length + " message" + (posts.length === 1 ? "" : "s") + ")\n" + rule(elite ? 5 : 3));
+    if (i < 0) await out("|08 No messages yet. Start something.\n");
+    else {
+      const p = posts[i];
+      await out(
+        "|08 Msg  |15#" + (i + 1) + " of " + posts.length + "\n" +
+        "|08 From |14" + esc(p.from_handle) + "\n" +
+        "|08 To   |07" + esc(p.to_handle) + "\n" +
+        "|08 Subj |15" + esc(p.subj) + "\n" +
+        "|08 Date |07" + d8(p.at) + " " + hm(p.at) + "\n" + rule(8) +
+        "|07 " + wrap(p.body, 76).split("\n").map(l => uc(l)).join("\n|07 ") + "\n" + rule(8)
+      );
+    }
+    await out("|07{N} Next  {P} Prev  {R} Reply  {E} Enter new" + (S.user.sysop && i >= 0 ? "  {K} Kill" : "") + "  {Q} Quit |15");
+    const k = await readKey("NPREQ" + (S.user.sysop ? "K" : ""), { enter: "N" });
+    if (k === "Q") return;
+    if (k === "N" && i < posts.length - 1) i++;
+    if (k === "P" && i > 0) i--;
+    if (k === "K" && i >= 0 && posts[i].id) {
+      await api("sysop/delpost", { id: posts[i].id });
+      posts.splice(i, 1); i = Math.min(i, posts.length - 1);
+    }
+    if (k === "E" || (k === "R" && i >= 0)) {
+      const np = await composePost(base, k === "R" ? posts[i] : null);
+      if (np) { posts = (await api("posts", { base: base.id })).rows; i = posts.length - 1; }
+    }
+  }
+}
+async function editor() {
+  await out("|08Enter your message. |07/S|08 on a line by itself saves, |07/A|08 aborts. 40 lines max.\n" + rule(8, "-", 76));
+  const lines = [];
+  while (lines.length < 40) {
+    await out("|08" + lpad(lines.length + 1, 2) + ": |07");
+    const l = await readLine({ max: 74 });
+    if (l.trim().toUpperCase() === "/A") { await out("|12Aborted.\n"); await sleep(400); return null; }
+    if (l.trim().toUpperCase() === "/S") break;
+    lines.push(l);
+  }
+  if (!lines.join("").trim()) { await out("|12Empty message. Not saved.\n"); await sleep(500); return null; }
+  return lines.join("\n");
+}
+async function composePost(base, reply, toWho) {
+  act("Writing a message");
+  outNow("\n");
+  let subj = reply ? ("Re: " + String(reply.subj || "").replace(/^Re: /, "")).slice(0, 40) : "";
+  const to = reply ? reply.from_handle : (toWho || "All");
+  if (!reply) {
+    if (toWho) await out("|14Message to the SysOp\n");
+    await out("|07Subject: |15");
+    subj = (await readLine({ max: 40 })).trim();
+    if (!subj) return null;
+  }
+  const body = await editor();
+  if (!body) return null;
+  const r = await api("post", { base: base.id, to, subj, body });
+  await out("|10Message saved.\n"); await sleep(500);
+  return r.post;
+}
+
+// ---------------------------------------------------------------- e-mail
+async function email() {
+  while (true) {
+    act("Reading e-mail");
+    const r = await api("inbox");
+    cls();
+    await out("|11 E-mail\n" + rule(3) + "|08 #  From                 Subject                          Date\n");
+    const rows = r.rows.slice(0, 9);
+    if (!rows.length) await out("|08 Your mailbox is empty.\n");
+    for (let i = 0; i < rows.length; i++) {
+      const m = rows[i];
+      await out((m.read ? "|07" : "|14") + " {" + (i + 1) + "} " + pad(esc(m.from_handle), 20) + " " + pad(esc(m.subj), 32) + " |08" + d8(m.at) + (m.read ? "" : " |14NEW") + "\n");
+    }
+    await out("\n|07 {S} Send mail  {Q} Back\n\n|08Read which? |07");
+    const k = await readKey("123456789".slice(0, rows.length) + "SQ");
+    if (k === "Q") { S.unread = r.rows.filter(m => !m.read).length; return; }
+    if (k === "S") { await guard(() => sendMail()); continue; }
+    const m = rows[+k - 1];
+    if (!m.read) await api("mailread", { id: m.id });
+    cls();
+    await out("|08 From |14" + esc(m.from_handle) + "\n|08 Subj |15" + esc(m.subj) + "\n|08 Date |07" + d8(m.at) + " " + hm(m.at) + "\n" + rule(8) +
+      "|07 " + wrap(m.body, 76).split("\n").map(l => uc(l)).join("\n|07 ") + "\n" + rule(8) +
+      "|07{R} Reply  {D} Delete  {Q} Back |15");
+    const a = await readKey("RDQ", { enter: "Q" });
+    if (a === "R") await guard(() => sendMail(m.from_handle, "Re: " + m.subj.replace(/^Re: /, "")));
+    if (a === "D") await api("maildel", { id: m.id });
+  }
+}
+async function sendMail(to, subj) {
+  act("Writing e-mail");
+  outNow("\n");
+  if (!to) { await out("|07To (handle): |15"); to = (await readLine({ max: 20 })).trim(); if (!to) return; }
+  if (!subj) { await out("|07Subject: |15"); subj = (await readLine({ max: 40 })).trim(); if (!subj) return; }
+  else await out("|07Subject: |15" + esc(subj).slice(0, 40) + "\n");
+  const body = await editor();
+  if (!body) return;
+  const r = await api("mailsend", { to, subj: subj.slice(0, 40), body });
+  await out("|10Mail sent to " + esc(r.to) + ".\n"); await sleep(500);
+}
+
+// ---------------------------------------------------------------- file areas
+async function fileAreas(side) {
+  const elite = side === "elite", c = elite ? 5 : 3, hc = elite ? "|13" : "|11";
+  while (true) {
+    act(elite ? "Lurking" : "Browsing files");
+    const r = await api("areas", { side });
+    cls();
+    await out(hc + " File Areas\n" + rule(c));
+    for (let i = 0; i < r.rows.length; i++) {
+      const a = r.rows[i];
+      await out("|07   {" + (i + 1) + "} " + pad(a.name, 18) + "|08" + lpad(a.files, 4) + " files " + lpad(K(a.bytes), 9) + "   " + pad(a.descr, 34) + "\n");
+    }
+    await out("\n|07   {Q} Back\n\n|08Which area? |07");
+    const k = await readKey("123456789".slice(0, r.rows.length) + "Q");
+    if (k === "Q") return;
+    await guard(() => listFiles(r.rows[+k - 1], side));
+  }
+}
+async function listFiles(area, side) {
+  const elite = side === "elite", c = elite ? 5 : 3, hc = elite ? "|13 " : "|11 ";
+  let page = 0;
+  while (true) {
+    const r = await api("files", { area: area.id });
+    const files = r.rows, pages = Math.max(1, Math.ceil(files.length / 9));
+    page = Math.min(page, pages - 1);
+    const slice = files.slice(page * 9, page * 9 + 9);
+    cls();
+    await out(hc + area.name + "  |08page " + (page + 1) + " of " + pages + "   |07credit: " + (elite ? "|13" : "|14") + K(elite ? S.user.credit_elite : S.user.credit_main) + "\n" + rule(c) +
+      "|08 #   Filename                   Size     Date   DLs  Description\n");
+    if (!files.length) await out("|08 No files here yet. Be the first to upload one.\n");
+    for (let i = 0; i < slice.length; i++) {
+      const f = slice[i];
+      await out("|15 {" + (i + 1) + "} |14" + pad(f.filename, 24) + "|07" + lpad(K(f.size), 9) + " |08" + d8(f.uploaded_at) + lpad(f.downloads, 5) + "  " +
+        (f.free ? "|10FREE |07" : "|07") + esc(f.descr).slice(0, f.free ? 22 : 27) + "\n");
+    }
+    await out("\n|07{U} Upload here" + (pages > 1 ? "  {N} Next page  {P} Prev page" : "") + "  {Q} Back\n|08Pick a file: |07");
+    const k = await readKey("123456789".slice(0, slice.length) + "UQ" + (pages > 1 ? "NP" : ""));
+    if (k === "Q") return;
+    if (k === "N") { page = (page + 1) % pages; continue; }
+    if (k === "P") { page = (page + pages - 1) % pages; continue; }
+    if (k === "U") { await guard(() => uploadFile(area, side)); continue; }
+    await guard(() => fileMenu(slice[+k - 1], side));
+  }
+}
+async function fileMenu(f, side) {
+  const elite = side === "elite";
+  const credit = elite ? S.user.credit_elite : S.user.credit_main;
+  const cost = f.free || S.user.sysop ? 0 : f.size;
+  cls();
+  await out((elite ? "|13" : "|11") + " " + f.filename + "\n" + rule(elite ? 5 : 3) +
+    "|07 Description .. |15" + esc(f.descr) + "\n" +
+    "|07 Size ......... |15" + K(f.size) + " |08(" + f.size.toLocaleString("en-US") + " bytes)\n" +
+    "|07 Uploaded by .. |14" + esc(f.uploader) + "|07 on " + d8(f.uploaded_at) + "\n" +
+    "|07 Downloads .... |15" + f.downloads + "\n" +
+    "|07 Cost ......... " + (cost ? "|15" + K(cost) + "|07 of your |15" + K(credit) + "|07 credit" : "|10FREE") + "\n" +
+    "|07 Est. time .... |15" + Math.max(1, Math.round(f.size / 1600 / 60)) + " min|08 at 14.4k (it'll be quicker than that)\n\n" +
+    "|07{D} Download" + (f.viewable ? "  {V} View on-line (free)" : "") + "  {Q} Back |15");
+  const k = await readKey("DQ" + (f.viewable ? "V" : ""));
+  if (k === "V") return viewFile(f);
+  if (k === "D") return download(f, side);
+}
+
+// CP437 for the upper half, so ANSI art from the era renders right.
+const CP437 = "ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ ";
+function decodeBytes(b64) {
+  const bin = atob(b64), bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  try { return new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
+  catch (e) { let s = ""; for (const x of bytes) s += x < 128 ? String.fromCharCode(x) : CP437[x - 128]; return s; }
+}
+// Turn ANSI escape colors into pipe codes; drop everything else.
+function ansiToPipes(text) {
+  const map = [0, 4, 2, 6, 1, 5, 3, 7];
+  let bold = false, f = 7, outS = "";
+  const re = /\x1b\[([\d;]*)([A-Za-z])/g;
+  let last = 0, m;
+  while ((m = re.exec(text))) {
+    outS += text.slice(last, m.index).replace(/\|/g, "!").replace(/[{}]/g, ch => ch === "{" ? "(" : ")");
+    last = re.lastIndex;
+    const params = m[1] ? m[1].split(";").map(Number) : [0];
+    if (m[2] === "m") {
+      for (const p of params) {
+        if (p === 0) { bold = false; f = 7; }
+        else if (p === 1) bold = true;
+        else if (p >= 30 && p <= 37) f = map[p - 30];
+        else if (p >= 40 && p <= 47) outS += "|" + String(16 + map[p - 40]);
+      }
+      if (params.includes(0)) outS += "|16";
+      outS += "|" + String((bold ? 8 : 0) + f).padStart(2, "0");
+    } else if (m[2] === "C") outS += " ".repeat(Math.min(80, params[0] || 1));
+  }
+  outS += text.slice(last).replace(/\|/g, "!").replace(/[{}]/g, ch => ch === "{" ? "(" : ")");
+  return outS.replace(/\x1a[\s\S]*$/, "").replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "").replace(/\t/g, "    ");
+}
+async function viewFile(f) {
+  act("Reading " + f.filename);
+  const r = await api("view", { id: f.id });
+  const text = ansiToPipes(decodeBytes(r.b64));
+  const lines = [];
+  for (const l of text.replace(/\r\n?/g, "\n").split("\n")) {
+    let rest = l;
+    do { lines.push(rest.slice(0, 80)); rest = rest.slice(80); } while (rest.length);
+  }
+  await pager("|15 " + f.filename + "\n" + rule(8), lines.map(l => "|07" + l + "|16"), 20);
+}
+async function download(f, side) {
+  act("Downloading " + f.filename);
+  const r = await api("download", { id: f.id });
+  if (r.ratio === false) {
+    await out("\n\n|12 RATIO CHECK FAILED.|07 This file costs |15" + K(r.cost) + "|07 and you have |15" + K(r.credit) + "|07.\n" +
+      (side === "elite" ? " |08Upload something to the Cesspool first, leech. Ratio down here is 1:" + (INFO ? INFO.rules.eliteRatio : 3) + ".\n"
+        : " |08Upload a file and you'll earn " + (INFO ? INFO.rules.mainRatio : 5) + "x its size in credit once it's validated.\n"));
+    return anyKey();
+  }
+  if (side === "elite") S.user.credit_elite = r.credit; else S.user.credit_main = r.credit;
+  await out("\n\n|07Protocol: {Z} Zmodem  {Y} Ymodem-G  {X} Xmodem-1K |15");
+  const p = await readKey("ZYX", { enter: "Z" });
+  const proto = { Z: "Zmodem", Y: "Ymodem-G", X: "Xmodem-1K" }[p];
+  outNow("\n|11 " + proto + " send: |15" + f.filename + "  |08(" + f.size.toLocaleString("en-US") + " bytes)\n");
+  const bar = await outEl("f7");
+  const dur = Math.min(4000, 800 + f.size / 2000), t0 = Date.now();
+  while (true) {
+    const pr = Math.min(1, (Date.now() - t0) / dur);
+    drawBar(bar, pr, f.size, 1590 + Math.floor(Math.random() * 90));
+    if (pr >= 1) break;
+    await sleep(100);
+  }
+  const a = document.createElement("a");
+  a.href = API + r.url; a.download = f.filename; a.rel = "noopener";
+  document.body.appendChild(a); a.click(); a.remove();
+  await out("|10 Transfer complete.|07 Your browser is saving |15" + f.filename + "|07.\n" +
+    (r.cost ? "|08 " + K(r.cost) + " deducted. Credit left: " + K(r.credit) + "\n" : "|08 Free file. No credit used.\n") +
+    "|08 If it didn't start, call back within 10 minutes and the same link works.\n");
+  await anyKey();
+}
+function drawBar(bar, pr, size, cps) {
+  const n = Math.round(pr * 40);
+  bar.textContent = " [" + "#".repeat(n) + ".".repeat(40 - n) + "] " + lpad(Math.round(pr * 100), 3) + "%  " + cps.toLocaleString("en-US") + " cps  " + K(pr * size) + "\n";
+  scrollDown();
+}
+// Resolves with the file the caller picks (or null). The picker itself is opened by the keypress.
+function waitForPick() {
+  picker.value = "";
+  return track((res, rej, entry) => {
+    const done = v => { picker.onchange = null; picker.oncancel = null; res(v); };
+    picker.onchange = () => done(picker.files && picker.files[0] || null);
+    picker.oncancel = () => done(null);
+    entry.cancel = () => { picker.onchange = null; picker.oncancel = null; };
+  });
+}
+async function uploadFile(area, side) {
+  const elite = side === "elite";
+  const ru = INFO ? INFO.rules : { mainRatio: 5, eliteRatio: 3, maxUpload: 52428800 };
+  act("Uploading");
+  cls();
+  await out((elite ? "|13" : "|11") + " Upload to " + area.name + "\n" + rule(elite ? 5 : 3) +
+    "|07 Max |15" + K(ru.maxUpload) + "|07 per file. Uploads wait for the SysOp to validate them.\n" +
+    " Once approved you earn |15" + (elite ? ru.eliteRatio : ru.mainRatio) + "x|07 the file's size in " + (elite ? "Cesspool" : "download") + " credit.\n" +
+    " |08Only upload things you have the right to share. No viruses.\n\n" +
+    "|07Description (one line): |15");
+  const descr = (await readLine({ max: 50 })).trim();
+  if (!descr) return;
+  await out("\n|07{S} Start upload (pick a file)   {Q} Cancel |15");
+  const picked = waitForPick();
+  picked.catch(() => {});
+  if ((await readKey("SQ", { enter: "S", sync: { S: () => picker.click() } })) === "Q") { picker.onchange = picker.oncancel = null; return; }
+  outNow("\n|08Waiting for your Zmodem upload... |07(any key cancels)\n");
+  const cancelKey = readKey(null); cancelKey.catch(() => {});
+  const file = await Promise.race([picked, cancelKey.then(() => null)]);
+  if (want) { want = null; renderLive(); }
+  if (!file) { await out("|12Upload cancelled.\n"); await sleep(600); return; }
+  if (file.size > ru.maxUpload) { await out("|12Too big. The limit is " + K(ru.maxUpload) + ".\n"); return anyKey(); }
+  await out("|11 Zmodem receive: |15" + esc(file.name) + "  |08(" + file.size.toLocaleString("en-US") + " bytes)\n");
+  const bar = await outEl("f7");
+  const t0 = Date.now();
+  const result = await track((res, rej, entry) => {
+    const xhr = new XMLHttpRequest();
+    entry.cancel = () => xhr.abort();
+    xhr.open("POST", API + "/api/upload");
+    xhr.setRequestHeader("x-line", token);
+    xhr.setRequestHeader("x-area", String(area.id));
+    xhr.setRequestHeader("x-filename", encodeURIComponent(file.name));
+    xhr.setRequestHeader("x-desc", encodeURIComponent(descr));
+    xhr.setRequestHeader("content-type", "application/octet-stream");
+    xhr.upload.onprogress = e => { if (e.lengthComputable) drawBar(bar, e.loaded / e.total, file.size, Math.round(e.loaded / Math.max(0.1, (Date.now() - t0) / 1000))); };
+    xhr.onload = () => { let d; try { d = JSON.parse(xhr.responseText); } catch (e) { d = { error: "Garbled response (" + xhr.status + ")." }; } res({ status: xhr.status, d }); };
+    xhr.onerror = () => res({ status: 0, d: { error: "Line noise. Transfer aborted." } });
+    xhr.send(file);
+  });
+  if (result.d.carrier === false) { dropCarrier("|12*** " + esc(result.d.error || "NO CARRIER")); throw new Hangup(); }
+  if (result.status !== 200) throw new BoardError(result.d.error || "Upload failed.");
+  drawBar(bar, 1, file.size, Math.round(file.size / Math.max(0.1, (Date.now() - t0) / 1000)));
+  if (result.d.pending)
+    await out("|10 Got it: |15" + result.d.filename + "|10.|07 It's in the validation queue.\n" +
+      " |08You'll get " + K(result.d.size * (elite ? ru.eliteRatio : ru.mainRatio)) + " of credit when the SysOp approves it. Thanks, d00d.\n");
+  else await out("|10 Uploaded |15" + result.d.filename + "|10. SysOp uploads go live right away.\n");
+  await anyKey();
+}
+
+// ---------------------------------------------------------------- doors
+async function doors() {
+  while (true) {
+    act("Door games");
+    cls();
+    await out("|11 Door Games\n" + rule(3) +
+      "|07   {1} |14Escape the Tank|07         text adventure by the SysOp    |10OPEN\n" +
+      "|07   {2} Legend of the Red Drain  RPG, 20 turns/day              |08closed\n" +
+      "|07   {3} Trade Wipes 2002         space trading                  |08closed\n" +
+      "\n|07   {Q} Back\n\n|08Open which door? |07");
+    const k = await readKey("123Q");
+    if (k === "Q") return;
+    if (k === "1") await adventure();
+    else { await out("\n|08Writing DOOR.SYS... loading... |12Door closed.|07 The SysOp is still configuring it.\n"); await anyKey(); }
+  }
+}
+const ROOMS = {
+  bowl: { name: "Toilet Bowl", desc: "You are a rubber duck, bobbing in a toilet bowl. Somebody just leaned on the handle. The water is starting to swirl.", exits: { down: "pipe" } },
+  pipe: { name: "Sewer Pipe", desc: "A four-inch cast iron pipe slopes away into the dark. It smells like 1958. Back up the way you came is too slippery.", exits: { east: "inlet" }, items: ["wrench"] },
+  inlet: { name: "Inlet Tee", desc: "The pipe drops into a cavern. Below you is a big concrete tank. A tee fitting points straight down into it.", exits: { west: "pipe", down: "scum" } },
+  scum: { name: "Scum Layer", desc: "You float on a crust of grease and mystery. A concrete baffle wall blocks the way east above the surface, but there's a gap down below.", exits: { up: "inlet", down: "effluent" } },
+  effluent: { name: "Effluent Layer", desc: "Murky, but clearer than you'd hope. Light leaks from the gap under the baffle to the east. Below is darkness and something thick.", exits: { up: "scum", east: "outlet", down: "sludge" } },
+  sludge: { name: "Sludge Layer", desc: "Thick, dark, ancient. Things settle here and are never seen again. Except, maybe, by you.", exits: { up: "effluent" }, items: ["ring"] },
+  outlet: { name: "Outlet Tee", desc: "You're under the outlet tee. A pipe leads up and out toward the leach field. Daylight, somewhere.", exits: { west: "effluent", up: "field" } },
+  field: { name: "Leach Field", desc: "You pop out of a distribution pipe into wet grass under a blue sky. A sprinkler ticks somewhere. You are free.", exits: {} },
+};
+const ITEMS = { wrench: "a heavy pipe wrench", ring: "a gold wedding ring" };
+async function adventure() {
+  act("Playing Escape the Tank");
+  cls();
+  await out("|14 E S C A P E   T H E   T A N K\n|08 a text adventure by ThE PLuMBeR - type HELP for commands\n" + rule(6));
+  const roomItems = {}; for (const k in ROOMS) roomItems[k] = (ROOMS[k].items || []).slice();
+  let here = "bowl", inv = [], moves = 0, score = 0;
+  const look = async () => {
+    const r = ROOMS[here];
+    await out("\n|15" + r.name + "\n|07" + wrap(r.desc) + "\n");
+    for (const it of roomItems[here]) await out("|07You see " + ITEMS[it] + " here.\n");
+    const ex = Object.keys(r.exits);
+    await out("|08Exits: " + (ex.length ? ex.join(", ") : "none") + "\n");
+  };
+  await look();
+  while (true) {
+    await out("\n|14> |15");
+    const raw = (await readLine({ max: 40 })).trim().toLowerCase();
+    if (!raw) continue;
+    moves++;
+    let [verb, ...rest] = raw.split(/\s+/); const noun = rest.join(" ").replace(/^(the|a|an) /, "");
+    const dirs = { n: "north", s: "south", e: "east", w: "west", u: "up", d: "down" };
+    if (dirs[verb]) verb = dirs[verb];
+    if (verb === "go" && noun) verb = dirs[noun] || noun;
+    if (["north", "south", "east", "west", "up", "down"].includes(verb)) {
+      const heavy = inv.includes("wrench");
+      if (here === "scum" && verb === "down" && !heavy) { await out("|07You dive. You're a rubber duck. You bob right back up.\n"); continue; }
+      if (here === "outlet" && verb === "up" && heavy) { await out("|07You try to rise, but the wrench holds you down like an anchor.\n"); continue; }
+      if (here === "scum" && verb === "east") { await out("|07The baffle wall is in the way up here.\n"); continue; }
+      const to = ROOMS[here].exits[verb];
+      if (!to) { await out("|07You can't go that way.\n"); continue; }
+      here = to; await look();
+      if (here === "field") {
+        score += 50; if (inv.includes("ring")) score += 50;
+        await out("\n|10*** You escaped the tank in " + moves + " moves. Score: " + score + " of 100. ***\n");
+        if (!inv.includes("ring")) await out("|08Rumor has it something valuable sank to the bottom...\n");
+        return anyKey();
+      }
+      continue;
+    }
+    if (verb === "look" || verb === "l") { await look(); continue; }
+    if (verb === "inventory" || verb === "i" || verb === "inv") { await out("|07You carry: " + (inv.length ? inv.map(i => ITEMS[i]).join(", ") : "nothing. You're a duck.") + "\n"); continue; }
+    if (verb === "take" || verb === "get") {
+      const it = Object.keys(ITEMS).find(k => noun.includes(k));
+      if (!it || !roomItems[here].includes(it)) { await out("|07You don't see that here.\n"); continue; }
+      roomItems[here] = roomItems[here].filter(x => x !== it); inv.push(it);
+      await out("|07Taken. " + (it === "wrench" ? "It's heavy. You ride a little lower in the water." : "Someone's going to be very happy. Or very embarrassed.") + "\n");
+      continue;
+    }
+    if (verb === "drop") {
+      const it = inv.find(k => noun.includes(k));
+      if (!it) { await out("|07You don't have that.\n"); continue; }
+      inv = inv.filter(x => x !== it); roomItems[here].push(it);
+      await out("|07Dropped. " + (it === "wrench" ? "You feel buoyant again." : "") + "\n");
+      continue;
+    }
+    if (verb === "help" || verb === "?") { await out("|07Commands: LOOK, N/S/E/W/UP/DOWN, TAKE <thing>, DROP <thing>, INVENTORY, QUIT\n"); continue; }
+    if (verb === "quack") { await out("|07Quack. It echoes off the concrete.\n"); continue; }
+    if (verb === "quit" || verb === "q") { await out("|07You give up and wait for the pump truck.\n"); await sleep(600); return; }
+    await out("|07I don't know how to \"" + esc(verb) + "\".\n");
+  }
+}
+
+// ================================================================= SYSOP CONSOLE
+async function sysopConsole() {
+  while (true) {
+    act("Main menu");
+    const [q, ap] = await Promise.all([api("sysop/queue"), api("sysop/apps")]);
+    cls();
+    await out("|14 SysOp Console\n" + rule(6) +
+      "|07   {V} Validate uploads     " + (q.rows.length ? "|14" + q.rows.length + " waiting" : "|08queue empty") + "\n" +
+      "|07   {A} Cesspool applications " + (ap.rows.length ? "|14" + ap.rows.length + " open" : "|08none") + "\n" +
+      "|07   {U} Users\n" +
+      "|07   {S} Secret entry (show or change)\n" +
+      "|07   {W} Who's online / kick a caller\n" +
+      "|07   {Q} Back\n\n|08Command: |07");
+    const k = await readKey("VAUSWQ");
+    if (k === "Q") return;
+    if (k === "V") await guard(validateQueue);
+    if (k === "A") await guard(applications);
+    if (k === "U") await guard(usersAdmin);
+    if (k === "S") await guard(secretAdmin);
+    if (k === "W") await guard(kickAdmin);
+  }
+}
+async function validateQueue() {
+  const q = (await api("sysop/queue")).rows;
+  for (let i = 0; i < q.length; i++) {
+    const f = q[i];
+    cls();
+    await out("|14 Validate " + (i + 1) + " of " + q.length + "\n" + rule(6) +
+      "|07 File ......... |15" + esc(f.filename) + "\n" +
+      "|07 Area ......... |15" + esc(f.area) + (f.side === "elite" ? " |13(Cesspool)" : "") + "\n" +
+      "|07 Size ......... |15" + K(f.size) + "\n" +
+      "|07 Uploader ..... |14" + esc(f.uploader) + "|07 on " + d8(f.uploaded_at) + " " + hm(f.uploaded_at) + "\n" +
+      "|07 Description .. |15" + esc(f.descr) + "\n\n" +
+      "|07{A} Approve  {F} Approve as FREE  {R} Reject & delete  {D} Download to check  {S} Skip  {Q} Quit |15");
+    let k;
+    while (true) {
+      k = await readKey("AFRDSQ");
+      if (k !== "D") break;
+      const r = await api("sysop/fileget", { id: f.id });
+      const a = document.createElement("a"); a.href = API + r.url; a.download = r.filename; document.body.appendChild(a); a.click(); a.remove();
+      await out("\n|08Downloading for inspection... then choose: |07");
+    }
+    if (k === "Q") return;
+    if (k === "S") continue;
+    if (k === "R") { await api("sysop/validate", { id: f.id, action: "reject" }); await out("\n|12Flushed.\n"); }
+    else {
+      const r = await api("sysop/validate", { id: f.id, action: "approve", free: k === "F" });
+      await out("\n|10Approved. |14" + esc(r.uploader) + "|10 earned " + K(r.credited) + " of credit.\n");
+    }
+    await sleep(600);
+  }
+  if (!q.length) { await out("\n|08Nothing waiting.\n"); await anyKey(); }
+}
+async function applications() {
+  const rows = (await api("sysop/apps")).rows;
+  for (const a of rows) {
+    cls();
+    await out("|13 Cesspool application\n" + rule(5) +
+      "|07 Handle ... |14" + esc(a.handle) + "|07   calls " + a.calls + ", uploads " + a.ul_files + ", applied " + d8(a.at) + "\n" + rule(8) +
+      "|07 " + wrap(a.text, 76).split("\n").map(esc).join("\n|07 ") + "\n" + rule(8) +
+      "|07{A} Approve  {D} Deny  {S} Skip  {Q} Quit |15");
+    const k = await readKey("ADSQ");
+    if (k === "Q") return;
+    if (k === "S") continue;
+    await api("sysop/decide", { id: a.id, approve: k === "A" });
+    await out("\n|10Done. They've been sent an e-mail.\n"); await sleep(600);
+  }
+  if (!rows.length) { await out("\n|08No open applications.\n"); await anyKey(); }
+}
+async function usersAdmin() {
+  let page = 0;
+  while (true) {
+    const rows = (await api("sysop/users")).rows;
+    const pages = Math.max(1, Math.ceil(rows.length / 9)); page = Math.min(page, pages - 1);
+    const sl = rows.slice(page * 9, page * 9 + 9);
+    cls();
+    await out("|14 Users  |08page " + (page + 1) + " of " + pages + "\n" + rule(6) + "|08 #   Handle               Lvl  Flags  UL files  Main credit  Pool credit\n");
+    for (let i = 0; i < sl.length; i++) {
+      const u = sl[i];
+      await out("|07 {" + (i + 1) + "} |14" + pad(esc(u.handle), 20) + " |07" + lpad(u.level, 3) + "  " + pad((u.elite ? "E" : "") + (u.banned ? "B" : "") + (u.sysop ? "S" : ""), 5) +
+        lpad(u.ul_files, 9) + lpad(K(u.credit_main), 13) + lpad(K(u.credit_elite), 13) + "\n");
+    }
+    await out("\n|08 Flags: E elite, B banned, S sysop\n|07{N} Next  {P} Prev  {Q} Back |15");
+    const k = await readKey("123456789".slice(0, sl.length) + "NPQ");
+    if (k === "Q") return;
+    if (k === "N") { page = (page + 1) % pages; continue; }
+    if (k === "P") { page = (page + pages - 1) % pages; continue; }
+    const u = sl[+k - 1];
+    await out("\n\n|14" + esc(u.handle) + ": |07{E} " + (u.elite ? "Revoke" : "Grant") + " Cesspool  {B} " + (u.banned ? "Unban" : "Ban") +
+      "  {C} Add main credit  {X} Add Cesspool credit  {Q} Back |15");
+    const a = await readKey("EBCXQ");
+    if (a === "E") await api("sysop/setuser", { id: u.id, elite: !u.elite });
+    if (a === "B") await api("sysop/setuser", { id: u.id, banned: !u.banned });
+    if (a === "C" || a === "X") {
+      await out("\n|07How many K to add (negative to take away): |15");
+      const n = parseInt(await readLine({ max: 8 }), 10);
+      if (Number.isFinite(n)) await api("sysop/setuser", { id: u.id, [a === "C" ? "addMain" : "addElite"]: n * 1024 });
+    }
+  }
+}
+async function secretAdmin() {
+  const cur = await api("sysop/secret", {});
+  cls();
+  await out("|14 Secret entry\n" + rule(6) +
+    "|07 At the normal login prompt, this handle and password open the door to\n the Cesspool's login screen:\n\n" +
+    "|07   Handle ..... |13" + esc(cur.word) + "\n|07   Password ... |13" + esc(cur.pass) + "\n\n" +
+    "|08 Only users with Cesspool access (you grant it) can log in past that door.\n\n" +
+    "|07{C} Change it  {Q} Back |15");
+  if ((await readKey("CQ")) === "Q") return;
+  await out("\n|07New secret handle: |15");
+  const word = (await readLine({ max: 20 })).trim();
+  await out("|07New secret password: |15");
+  const pass = (await readLine({ max: 30 })).trim();
+  if (!word || !pass) return;
+  await api("sysop/secret", { word, pass });
+  await out("|10Changed.\n"); await sleep(600);
+}
+async function kickAdmin() {
+  const r = await api("who");
+  cls();
+  await out("|14 Lines\n" + rule(6));
+  for (let n = 1; n <= r.lines; n++) {
+    const u = r.nodes.find(x => x.node === n);
+    await out("|07 {" + n + "} " + (u ? "|14" + pad(esc(u.handle), 20) + " |07" + esc(u.activity) + (u.you ? " |08(you)" : "") : "|08-- free --") + "\n");
+  }
+  await out("\n|08Kick which node? |07{Q} back |15");
+  const k = await readKey("123456789".slice(0, r.lines) + "Q");
+  if (k === "Q") return;
+  await api("sysop/kick", { node: +k });
+  await out("\n|10Node " + k + " hung up.\n"); await sleep(600);
+}
+
+// ================================================================= THE CESSPOOL
+async function cesspoolGate() {
+  act("Logging in");
+  await out("\n|08Verifying");
+  for (let i = 0; i < 5; i++) { await sleep(240); await out("."); }
+  cls();
+  for (let i = 0; i < 12; i++) await out("|0" + (i % 2 ? 5 : 4) + "#".repeat(10 + ((i * 37) % 60)) + "\n");
+  cls();
+  await art("logo_elite");
+  await out("\n|05 the cesspool |08// |13members only|08. one wrong answer and you're off the line.\n\n|05 handle: |15");
+  const handle = (await readLine({ max: 30 })).trim();
+  await out("|05 passwd: ");
+  const password = await readLine({ max: 64, mask: true });
+  const r = await api("login", { handle, password, elite: true });
+  if (r.notElite) {
+    S = { user: r.user, eliteOk: false, unread: 0 };
+    await out("\n|12 You're not on the list, |15" + esc(r.user.handle) + "|12.\n\n|07 Apply for access? {Y} Yes  {N} No |15");
+    if ((await readKey("YN")) === "N") { await out("\n|08 Didn't think so.\n"); await sleep(800); return dropCarrier(); }
+    act("Logging in");
+    const qs = ["What groups are you in, or who are your affils?", "What will you upload?", "Who vouches for you?"];
+    const answers = [];
+    for (const q of qs) { await out("\n\n|13 " + q + "\n|05 > |15"); answers.push((await readLine({ max: 70 })).trim()); }
+    await api("apply", { text: qs.map((q, i) => q + "\n  " + (answers[i] || "(no answer)")).join("\n") });
+    await out("\n|13 Application filed. |08Don't call us. We'll call you.\n");
+    await sleep(1200);
+    return dropCarrier();
+  }
+  S = r;
+  return cesspool();
+}
+
+async function cesspool() {
+  refreshStatus();
+  act("Lurking");
+  cls();
+  await art("logo_elite");
+  await out("\n|13      ACCESS GRANTED |08:: |12NODE " + myNode + " |08:: |05welcome to the bottom of the tank, |15" + esc(S.user.handle) + "\n");
+  await out("|08      ratio 1:" + (INFO ? INFO.rules.eliteRatio : 3) + " |05:: |08no lamers |05:: |08no narcs |05:: |08no viruses\n\n");
+  if (S.unread) await out("|14      You have " + S.unread + " new e-mail.\n");
+  await sleep(700);
+  while (true) {
+    act("Lurking");
+    cls();
+    const u = S.user;
+    await out(
+      "|05.--=[ |13THE CESSPOOL |05]=---------------------------------------------=[ |13ELiTE |05]=--.\n\n" +
+      "|07   {F} File Areas             {M} Message Bases        {E} E-mail" + (S.unread ? " |14(" + S.unread + ")" : "") + "\n" +
+      "|07   {C} Top Couriers           {L} Last Callers         {W} Who's Online\n" +
+      "|07   {Y} Your Stats             {X} Back to the lamer side\n" +
+      (u.sysop ? "|07   {!} |14SysOp Console\n" : "") +
+      "|07   {G} Goodbye\n\n" +
+      "|05[|13" + esc(u.handle) + "|05] |08credit: |15" + K(u.credit_elite) + " |08tl: |15" + timeLeft() + "m |12CMD|08> |07"
+    );
+    const k = await readKey("FMECLWYXG" + (u.sysop ? "!" : ""));
+    if (k === "F") await guard(() => fileAreas("elite"));
+    else if (k === "M") await guard(() => messageBases("elite"));
+    else if (k === "E") await guard(email);
+    else if (k === "C") await guard(couriers);
+    else if (k === "L") await guard(() => lastCallers("elite"));
+    else if (k === "W") await guard(whoScreen);
+    else if (k === "Y") await guard(yourStats);
+    else if (k === "!") await guard(sysopConsole);
+    else if (k === "X") return mainMenu();
+    else if (k === "G") { if (await goodbye()) return; }
+  }
+}
+async function couriers() {
+  act("Lurking");
+  const r = await api("couriers");
+  cls();
+  await out("|13 Top Couriers\n" + rule(5) + "|08 #   Handle               Uploaded     Files\n");
+  if (!r.rows.length) await out("|08 Nobody's uploaded anything. Be the first courier.\n");
+  for (let i = 0; i < r.rows.length; i++) {
+    const c = r.rows[i];
+    await out("|15 " + lpad(i + 1, 2) + "  |14" + pad(esc(c.handle), 20) + "|07" + lpad(K(c.ul_bytes), 9) + lpad(c.ul_files, 10) + "\n");
+  }
+  await anyKey();
+}
+
+// ---------------------------------------------------------------- boot
+run(dialer);
+
+</script>
+
+</body></html>
