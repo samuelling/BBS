@@ -6,7 +6,7 @@
     "build": "python3 build.py",
     "dev": "wrangler dev",
     "migrate:local": "wrangler d1 migrations apply septic-tankz --local",
-    "deploy": "node scripts/provision.mjs && wrangler d1 migrations apply septic-tankz --remote && wrangler deploy"
+    "deploy": "wrangler d1 migrations apply septic-tankz --remote && wrangler deploy"
   },
   "devDependencies": {
     "wrangler": "4.147.0"

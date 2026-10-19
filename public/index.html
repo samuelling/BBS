@@ -634,7 +634,8 @@ async function board() {
     d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) + "\n" + rule(8));
   if (INFO) {
     await out("|08   Users |15" + INFO.users + "   |08Files |15" + INFO.files + " |08(" + K(INFO.bytes) + ")   |08Messages |15" + INFO.posts +
-      "   |08Calls |15" + INFO.callers + "\n\n");
+      "   |08Calls |15" + INFO.callers +
+      (INFO.diskFree != null ? "   |08Free |15" + K(INFO.diskFree) : "") + "\n\n");
   }
   await art("tank");
   if (INFO && INFO.fresh) await out("\n|14 Fresh install. |07The first account created becomes the |15SysOp|07.\n");

@@ -18,6 +18,7 @@ past its door.
 - Private e-mail between users, a one-liner wall, last callers, who's online, user list
 - Bulletins and a door game, *Escape the Tank*
 - Text, NFO and ANSI files can be read on-line for free, and ANSI art renders in color
+- Free disk space shows at login, like a real board
 
 **The Cesspool**
 - Reached by typing the secret handle and password at the normal login prompt,
@@ -51,36 +52,55 @@ right after the first deploy.
 | `web/` | The terminal page: `shell.html` (markup and CSS) and `app.js` |
 | `build.py` | Generates the ASCII art and builds `public/index.html` (served by the Worker) and `index.html` (GitHub Pages copy) |
 | `wrangler.jsonc` | Worker config and board settings |
-| `.github/workflows/deploy.yml` | Deploys to Cloudflare on every push to `main` |
 
-Files live in an R2 bucket, everything else in a D1 database.
+Accounts, messages and the file list live in a D1 database. The files themselves
+live wherever `FILE_STORE` points (see below).
 
-## Setting it up on Cloudflare
+## Deploying
 
-You need a free Cloudflare account. Then:
+The repo is connected to Cloudflare's Workers Builds: every push to `main`
+applies any new database migrations and redeploys the Worker. The build's deploy
+command is:
 
-1. **Turn on Workers and R2.** In the Cloudflare dashboard, open *Workers & Pages* once
-   so the account gets a `workers.dev` subdomain. Then open *R2 Object Storage* and
-   enable it. R2 is free up to 10 GB of storage, but Cloudflare may ask for a payment
-   method to switch it on.
-2. **Make an API token.** *My Profile → API Tokens → Create Token*, start from the
-   **Edit Cloudflare Workers** template, and add one more permission:
-   *Account → D1 → Edit*. Create it and copy the token.
-3. **Find your account ID.** It's on the right side of the Workers & Pages overview page.
-4. **Add two repository secrets** in GitHub: *Settings → Secrets and variables → Actions →
-   New repository secret*:
-   - `CLOUDFLARE_API_TOKEN` — the token from step 2
-   - `CLOUDFLARE_ACCOUNT_ID` — the ID from step 3
-5. **Deploy.** *Actions → Deploy board → Run workflow*. The run summary shows the
-   board's address, `https://septic-tankz.<your-subdomain>.workers.dev`.
-6. **Claim the SysOp account.** Dial in and create the first account.
-7. **Change the secret entry.** The default (`FLUSH` / `BACKFLOW`) is in this public
-   repo. Change it from the SysOp console under *Secret entry*.
+```
+npx wrangler d1 migrations apply septic-tankz --remote && npx wrangler deploy
+```
 
-After that, every push to `main` redeploys automatically.
+The first account ever created becomes the SysOp. The default secret entry
+(`FLUSH` / `BACKFLOW`) is visible in this public repo, so change it from the SysOp
+console under *Secret entry*.
 
 To make the GitHub Pages copy (`samuelling.github.io/BBS`) talk to the board,
 put the Worker's address in `bbs.config.json` as `api_base` and run `python3 build.py`.
+
+## File storage
+
+`FILE_STORE` in `wrangler.jsonc` picks where uploads go. Only the bytes move;
+everything else stays in D1, so switching later means copying the files across
+and changing one setting.
+
+| `FILE_STORE` | Where | Limits |
+| --- | --- | --- |
+| `kv` (current) | Workers KV namespace `septic-tankz-files` | Free plan: about 1 GB total, 25 MB per file, ~1,000 uploads a day |
+| `r2` | An R2 bucket (uncomment `r2_buckets`) | 10 GB free, then pay as you go. Needs the R2 subscription. 100 MB per file. |
+| `http` | Your own file server | Whatever your disk holds. 100 MB per file through Cloudflare. |
+
+`STORAGE_QUOTA_MB` caps the board's total storage (900 MB by default on KV) so
+uploads fail politely with "hard drive is full" instead of hitting a hidden limit.
+Callers see the free space at login.
+
+### Your own file server
+
+With `FILE_STORE` set to `http`, the Worker talks to any server that does three
+things under `FILE_SERVER_URL`, each with `Authorization: Bearer <FILE_SERVER_TOKEN>`:
+
+- `PUT /<key>` stores the request body
+- `GET /<key>` returns it
+- `DELETE /<key>` removes it
+
+Set `FILE_SERVER_TOKEN` as an encrypted secret in the Cloudflare dashboard
+(Worker → Settings → Variables and Secrets), never in this repo. A home machine can
+be exposed safely with a Cloudflare Tunnel, so no ports need opening on your router.
 
 ## Settings
 
@@ -90,7 +110,9 @@ In `wrangler.jsonc` under `vars`:
 | --- | --- | --- |
 | `PHONE_LINES` | 1 | Callers allowed on at once (max 16) |
 | `TIME_LIMIT_MIN` | 60 | Minutes per call |
-| `MAX_UPLOAD_MB` | 50 | Largest single upload (Cloudflare's free plan caps requests at 100 MB) |
+| `FILE_STORE` | kv | `kv`, `r2` or `http` (see above) |
+| `MAX_UPLOAD_MB` | 25 | Largest single upload (capped by the storage backend) |
+| `STORAGE_QUOTA_MB` | 900 | Board-wide storage cap (0 = none) |
 | `DAILY_UPLOAD_MB` | 200 | Per-user upload allowance per 24 hours |
 | `MAIN_RATIO` | 5 | Credit earned per byte uploaded on the main board |
 | `ELITE_RATIO` | 3 | Credit earned per byte uploaded in the Cesspool |

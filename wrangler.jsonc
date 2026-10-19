@@ -12,23 +12,29 @@
     {
       "binding": "DB",
       "database_name": "septic-tankz",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "dc611a1d-6e18-4d47-8e4d-a2c3bf554f28",
       "migrations_dir": "migrations"
     }
   ],
-  "r2_buckets": [
-    { "binding": "FILES", "bucket_name": "septic-tankz-files" }
+  // Where uploaded files live. FILE_STORE below picks which one the board uses.
+  "kv_namespaces": [
+    { "binding": "FILES_KV", "id": "fbaca17df3b64f83ad504b04772ae936" }
   ],
-  // Board settings. Change these and push; the deploy picks them up.
+  // To use R2 instead: create a bucket, add it here, and set FILE_STORE to "r2".
+  // "r2_buckets": [ { "binding": "FILES", "bucket_name": "septic-tankz-files" } ],
   "vars": {
     "BOARD_NAME": "The Septic Tankz",
     "PHONE_LINES": "1",
     "TIME_LIMIT_MIN": "60",
-    "MAX_UPLOAD_MB": "50",
+    "FILE_STORE": "kv",
+    "MAX_UPLOAD_MB": "25",
+    "STORAGE_QUOTA_MB": "900",
     "DAILY_UPLOAD_MB": "200",
     "MAIN_RATIO": "5",
     "ELITE_RATIO": "3",
     "START_CREDIT_KB": "2048"
+    // For your own file server: FILE_STORE "http", FILE_SERVER_URL "https://files.example.com",
+    // and FILE_SERVER_TOKEN set as a secret in the Cloudflare dashboard (not here).
   },
   "observability": { "enabled": true }
 }

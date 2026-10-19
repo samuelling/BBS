@@ -1,4 +1,4 @@
-// The Septic Tankz — board server (Cloudflare Worker + D1 + R2)
+// The Septic Tankz — board server (Cloudflare Worker + D1, files in KV / R2 / your own server)
 //
 // Every caller holds a "phone line": a row in the `line` table with a random
 // token and a heartbeat. No line, no service. Accounts, ratios, uploads and the
@@ -21,18 +21,72 @@ class BoardError extends Error {
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json", ...CORS } });
 
+const STORE_CAP_MB = { kv: 25, r2: 100, http: 100 };   // largest single file each backend takes
+
 function settings(env) {
   const n = (v, d) => (Number.isFinite(+v) && +v > 0 ? +v : d);
+  const store = storeKind(env);
   return {
+    store,
+    quota: n(env.STORAGE_QUOTA_MB, store === "kv" ? 900 : 0) * 1048576,   // 0 = no board-wide limit
     board: env.BOARD_NAME || "The Septic Tankz",
     lines: Math.min(16, n(env.PHONE_LINES, 1)),
     timeMin: n(env.TIME_LIMIT_MIN, 60),
-    maxUpload: n(env.MAX_UPLOAD_MB, 50) * 1048576,
+    maxUpload: Math.min(n(env.MAX_UPLOAD_MB, 25), STORE_CAP_MB[store]) * 1048576,
     dailyUpload: n(env.DAILY_UPLOAD_MB, 200) * 1048576,
     mainRatio: n(env.MAIN_RATIO, 5),
     eliteRatio: n(env.ELITE_RATIO, 3),
     startCredit: n(env.START_CREDIT_KB, 2048) * 1024,
   };
+}
+
+// ---------------------------------------------------------------- file storage
+// FILE_STORE picks where uploaded files live:
+//   "kv"   Workers KV (binding FILES_KV). Free, about 1 GB, 25 MB per file.
+//   "r2"   an R2 bucket (binding FILES).
+//   "http" your own file server: PUT / GET / DELETE {FILE_SERVER_URL}/{key},
+//          with "Authorization: Bearer {FILE_SERVER_TOKEN}" (set that as a Worker secret).
+function storeKind(env) {
+  const k = String(env.FILE_STORE || "kv").toLowerCase();
+  return STORE_CAP_MB[k] ? k : "kv";
+}
+function storage(env) {
+  const kind = storeKind(env);
+  if (kind === "r2") {
+    if (!env.FILES) throw new BoardError("The file drive isn't connected (no R2 bucket).", 503);
+    return {
+      put: (key, body, size, ctype) => env.FILES.put(key, body, { httpMetadata: { contentType: ctype } }),
+      stream: async key => { const o = await env.FILES.get(key); return o && o.body; },
+      bytes: async key => { const o = await env.FILES.get(key); return o && new Uint8Array(await o.arrayBuffer()); },
+      del: key => env.FILES.delete(key),
+    };
+  }
+  if (kind === "http") {
+    const base = String(env.FILE_SERVER_URL || "").replace(/\/$/, "");
+    if (!base) throw new BoardError("The file drive isn't connected (no FILE_SERVER_URL).", 503);
+    const auth = { authorization: "Bearer " + (env.FILE_SERVER_TOKEN || "") };
+    const url = key => base + "/" + key.split("/").map(encodeURIComponent).join("/");
+    return {
+      put: async (key, body, size, ctype) => {
+        const r = await fetch(url(key), { method: "PUT", body, headers: { ...auth, "content-type": ctype, "content-length": String(size) } });
+        if (!r.ok) throw new Error("file server PUT " + r.status);
+      },
+      stream: async key => { const r = await fetch(url(key), { headers: auth }); return r.ok ? r.body : null; },
+      bytes: async key => { const r = await fetch(url(key), { headers: auth }); return r.ok ? new Uint8Array(await r.arrayBuffer()) : null; },
+      del: async key => { await fetch(url(key), { method: "DELETE", headers: auth }); },
+    };
+  }
+  if (!env.FILES_KV) throw new BoardError("The file drive isn't connected (no KV namespace).", 503);
+  return {
+    put: (key, body) => env.FILES_KV.put(key, body),
+    stream: key => env.FILES_KV.get(key, { type: "stream" }),
+    bytes: async key => { const b = await env.FILES_KV.get(key, { type: "arrayBuffer" }); return b && new Uint8Array(b); },
+    del: key => env.FILES_KV.delete(key),
+  };
+}
+async function diskUsed(env) {
+  const r = await env.DB.prepare("SELECT COALESCE(SUM(size),0) b FROM files WHERE content IS NULL").first();
+  return r.b;
 }
 
 export default {
@@ -227,9 +281,8 @@ async function route(path, req, env) {
       let bytes;
       if (f.content != null) bytes = new TextEncoder().encode(f.content);
       else {
-        const obj = await env.FILES.get(f.r2_key);
-        if (!obj) throw new BoardError("File is missing from the drive.", 404);
-        bytes = new Uint8Array(await obj.arrayBuffer());
+        bytes = await storage(env).bytes(f.r2_key);
+        if (!bytes) throw new BoardError("File is missing from the drive.", 404);
       }
       let bin = "";
       for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode(...bytes.subarray(i, i + 8192));
@@ -322,7 +375,7 @@ async function route(path, req, env) {
       const f = await db.prepare("SELECT f.*, a.side FROM files f JOIN areas a ON a.id = f.area_id WHERE f.id = ? AND f.status = 'pending'").bind(+body.id).first();
       if (!f) throw new BoardError("Not in the queue.");
       if (body.action === "reject") {
-        if (f.r2_key) await env.FILES.delete(f.r2_key);
+        if (f.r2_key) await storage(env).del(f.r2_key);
         await db.prepare("DELETE FROM files WHERE id = ?").bind(f.id).run();
         return json({ ok: true, rejected: true });
       }
@@ -346,7 +399,7 @@ async function route(path, req, env) {
       requireSysop(user);
       const f = await db.prepare("SELECT * FROM files WHERE id = ?").bind(+body.id).first();
       if (!f) throw new BoardError("No such file.");
-      if (f.r2_key) await env.FILES.delete(f.r2_key);
+      if (f.r2_key) await storage(env).del(f.r2_key);
       await db.prepare("DELETE FROM files WHERE id = ?").bind(f.id).run();
       return json({ ok: true });
     }
@@ -441,12 +494,14 @@ async function info(env) {
     env.DB.prepare("SELECT COUNT(*) n, COALESCE(SUM(size),0) b FROM files f JOIN areas a ON a.id = f.area_id WHERE status = 'approved' AND a.side = 'main'"),
     env.DB.prepare("SELECT COUNT(*) n FROM posts p JOIN bases b ON b.id = p.base_id WHERE b.side = 'main'"),
     env.DB.prepare("SELECT COUNT(*) n FROM callers"),
+    env.DB.prepare("SELECT COALESCE(SUM(size),0) b FROM files WHERE content IS NULL"),
   ]);
   return json({
     board: s.board, lines: s.lines, timeMin: s.timeMin, users: r[0].results[0].n,
     files: r[1].results[0].n, bytes: r[1].results[0].b, posts: r[2].results[0].n, callers: r[3].results[0].n,
     rules: { mainRatio: s.mainRatio, eliteRatio: s.eliteRatio, startCredit: s.startCredit, maxUpload: s.maxUpload },
     fresh: r[0].results[0].n === 0,
+    diskFree: s.quota ? Math.max(0, s.quota - r[4].results[0].b) : null,
   });
 }
 
@@ -575,6 +630,7 @@ async function upload(req, env) {
     const day = await db.prepare("SELECT COALESCE(SUM(size),0) b FROM files WHERE uploader_id = ? AND uploaded_at > ?").bind(user.id, t - 86_400_000).first();
     if (day.b + size > s.dailyUpload) throw new BoardError(`Daily upload limit is ${Math.round(s.dailyUpload / 1048576)} MB. Try tomorrow.`);
   }
+  if (s.quota && (await diskUsed(env)) + size > s.quota) throw new BoardError("The board's hard drive is full. Tell the SysOp.", 507);
   const dupe = await db.prepare("SELECT f.id FROM files f JOIN areas a ON a.id = f.area_id WHERE a.side = ? AND f.filename = ?").bind(area.side, name).first();
   if (dupe) throw new BoardError("A file by that name already exists. Rename it and try again.");
 
@@ -586,7 +642,7 @@ async function upload(req, env) {
   try {
     const { readable, writable } = new FixedLengthStream(size);
     const pipe = req.body.pipeTo(writable);
-    await env.FILES.put(key, readable, { httpMetadata: { contentType: ctype } });
+    await storage(env).put(key, readable, size, ctype);
     await pipe;
   } catch (e) {
     await db.prepare("DELETE FROM files WHERE id = ?").bind(row.id).run();
@@ -611,8 +667,8 @@ async function serveTicket(env, id) {
     "x-content-type-options": "nosniff",
   };
   if (f.content != null) return new Response(f.content, { headers });
-  const obj = await env.FILES.get(f.r2_key);
-  if (!obj) return new Response("File is missing from the drive.\n", { status: 404, headers: CORS });
-  headers["content-length"] = String(obj.size);
-  return new Response(obj.body, { headers });
+  const body = await storage(env).stream(f.r2_key);
+  if (!body) return new Response("File is missing from the drive.\n", { status: 404, headers: CORS });
+  headers["content-length"] = String(f.size);
+  return new Response(body, { headers });
 }
