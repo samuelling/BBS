@@ -84,6 +84,8 @@ body {
 }
 #bar button:hover, #bar button:focus-visible { background: #00aaaa; color: #000; outline: none; }
 #bar .on { color: var(--bar-hi); }
+#st-page { color: #fff; background: var(--c4); padding: 0 6px; animation: blink 1s steps(1) infinite; }
+.prompt { color: var(--c14); }
 @media (max-width: 560px) {
   body { padding-block: 6px; }
   #bezel { padding: 6px; border-radius: 12px; }
@@ -119,6 +121,7 @@ body {
     <span>14400 N81</span><span class="sep">&#9474;</span>
     <span id="st-node">NODE --</span><span class="sep">&#9474;</span>
     <span id="st-time">00:00:00</span>
+    <span id="st-page" hidden>PAGE!</span>
     <span class="grow"></span>
     <button id="b-snd" type="button">SND <span class="on">ON</span></button>
     <button id="b-hang" type="button" hidden>HANG UP</button>

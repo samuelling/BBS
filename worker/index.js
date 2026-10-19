@@ -160,7 +160,7 @@ async function getLine(env, req, activity) {
   if (!token) throw new BoardError("NO CARRIER", 410, { carrier: false });
   const s = settings(env), t = now();
   const line = await env.DB.prepare(
-    "UPDATE line SET beat = ?1, activity = COALESCE(?5, activity) WHERE token = ?2 AND beat > ?3 AND since > ?4 RETURNING *"
+    "UPDATE line SET beat = ?1, activity = COALESCE(?5, activity) WHERE token = ?2 AND beat > ?3 AND (node = 0 OR since > ?4) RETURNING *"
   ).bind(t, token, t - BEAT_MS, t - s.timeMin * 60_000, activity ?? null).first();
   if (!line) throw new BoardError("NO CARRIER", 410, { carrier: false });
   return line;
@@ -208,7 +208,16 @@ async function route(path, req, env) {
     case "info": return info(env);
     case "dial": return dial(req, env);
     case "hangup": { const t = req.headers.get("x-line"); if (t) await hangupToken(env, t); return json({ ok: true }); }
-    case "beat": { const line = await getLine(env, req, clean(body.act, 30) || null); return json({ ok: true, timeLeft: timeLeft(env, line) }); }
+    case "beat": {
+      const line = await getLine(env, req, clean(body.act, 30) || null);
+      let pages = 0;
+      if (line.user_id) {
+        const u = await env.DB.prepare("SELECT level FROM users WHERE id = ?").bind(line.user_id).first();
+        if (u && u.level >= 255) pages = (await waitingPages(env)).length;
+      }
+      return json({ ok: true, timeLeft: timeLeft(env, line), pages });
+    }
+    case "local": return localLogin(req, env, body);
     case "login": return login(req, env, body);
     case "newuser": return newUser(req, env, body);
     case "apply": return apply(req, env, body);
@@ -230,7 +239,7 @@ async function route(path, req, env) {
       const rows = (await db.prepare("SELECT node, handle, activity, elite_ok FROM line WHERE token IS NOT NULL AND beat > ? AND node <= ? ORDER BY node")
         .bind(t - BEAT_MS, s.lines).all()).results;
       return json({ lines: s.lines, nodes: rows.map(r => ({
-        node: r.node, handle: r.handle || "(logging in)",
+        node: r.node, local: r.node === 0, handle: r.handle || "(logging in)",
         activity: r.elite_ok && !line.elite_ok ? "Reading bulletins" : (r.activity || ""),
         you: r.node === line.node })) });
     }
@@ -372,6 +381,66 @@ async function route(path, req, env) {
       return json({ ok: true, to: to.handle });
     }
 
+    // ---------------- live chat
+    case "chat/poll": {
+      const room = await chatRoomFor(env, line, user, body.room);
+      const after = Math.max(0, Math.trunc(+body.after) || 0);
+      const t = now();
+      if (line.room !== room) {
+        const stmts = [db.prepare("UPDATE line SET room = ? WHERE node = ?").bind(room, line.node),
+          db.prepare("INSERT INTO chat (room, user_id, handle, kind, at) VALUES (?, ?, ?, 'join', ?)").bind(room, user.id, user.handle, t)];
+        if (line.room) stmts.push(db.prepare("INSERT INTO chat (room, user_id, handle, kind, at) VALUES (?, ?, ?, 'leave', ?)").bind(line.room, user.id, user.handle, t));
+        await db.batch(stmts);
+      }
+      const msgs = after
+        ? (await db.prepare("SELECT id, handle, kind, text, at FROM chat WHERE room = ? AND id > ? ORDER BY id LIMIT 100").bind(room, after).all()).results
+        : (await db.prepare("SELECT * FROM (SELECT id, handle, kind, text, at FROM chat WHERE room = ? ORDER BY id DESC LIMIT 15) ORDER BY id").bind(room).all()).results;
+      const members = (await db.prepare("SELECT handle, node FROM line WHERE room = ? AND token IS NOT NULL AND beat > ? ORDER BY node").bind(room, t - BEAT_MS).all()).results;
+      return json({ room, msgs, members: members.map(m => m.handle || "?") });
+    }
+    case "chat/say": {
+      const room = await chatRoomFor(env, line, user, body.room);
+      if (room === "tele" || room === "pool") requireValidated(user);
+      const text = clean(body.text, 200);
+      if (!text) return json({ ok: true });
+      const t = now();
+      const last = await db.prepare("SELECT at FROM chat WHERE user_id = ? AND kind = 'msg' ORDER BY id DESC LIMIT 1").bind(user.id).first();
+      if (last && t - last.at < 600) throw new BoardError("Slow down. One line at a time.", 429);
+      await db.prepare("INSERT INTO chat (room, user_id, handle, kind, text, at) VALUES (?, ?, ?, 'msg', ?, ?)").bind(room, user.id, user.handle, text, t).run();
+      if (Math.random() < 0.02) await db.prepare("DELETE FROM chat WHERE at < ?").bind(t - 7 * 86_400_000).run();
+      return json({ ok: true });
+    }
+    case "chat/leave": {
+      if (line.room) await db.batch([
+        db.prepare("UPDATE line SET room = NULL WHERE node = ?").bind(line.node),
+        db.prepare("INSERT INTO chat (room, user_id, handle, kind, at) VALUES (?, ?, ?, 'leave', ?)").bind(line.room, user.id, user.handle, now()),
+      ]);
+      return json({ ok: true });
+    }
+    case "chat/page": {
+      const reason = clean(body.reason, 60);
+      const t = now();
+      const recent = await db.prepare("SELECT COUNT(*) n FROM pages WHERE user_id = ? AND at > ?").bind(user.id, t - 10 * 60_000).first();
+      if (recent.n >= 3) throw new BoardError("You've paged three times already. Leave the SysOp a comment instead.");
+      const r = await db.prepare("INSERT INTO pages (user_id, handle, node, reason, at) VALUES (?, ?, ?, ?, ?) RETURNING id").bind(user.id, user.handle, line.node, reason, t).first();
+      const sysop = await db.prepare("SELECT l.node FROM line l JOIN users u ON u.id = l.user_id WHERE u.level >= 255 AND l.token IS NOT NULL AND l.beat > ?").bind(t - BEAT_MS).first();
+      return json({ id: r.id, sysopOnline: !!sysop });
+    }
+    case "chat/pagestatus": {
+      const pg = await db.prepare("SELECT answered FROM pages WHERE id = ? AND user_id = ?").bind(+body.id, user.id).first();
+      return json({ answered: !!(pg && pg.answered) });
+    }
+    case "chat/pages": {
+      requireSysop(user);
+      return json({ rows: await waitingPages(env) });
+    }
+    case "chat/answer": {
+      requireSysop(user);
+      const pg = await db.prepare("UPDATE pages SET answered = 1 WHERE id = ? RETURNING *").bind(+body.id).first();
+      if (!pg) throw new BoardError("That page is gone.");
+      return json({ room: "page:" + pg.id, handle: pg.handle });
+    }
+
     // ---------------- sysop
     case "sysop/queue": {
       requireSysop(user);
@@ -507,6 +576,26 @@ function timeLeft(env, line) {
   return Math.max(0, Math.floor((line.since + settings(env).timeMin * 60_000 - now()) / 60_000));
 }
 
+// Which chat room a caller may be in: the main teleconference, the Cesspool's, or a SysOp page chat.
+async function chatRoomFor(env, line, user, room) {
+  room = String(room || "");
+  if (room === "tele") return room;
+  if (room === "pool") { requireSide(line, user, "elite"); return room; }
+  const m = /^page:(\d+)$/.exec(room);
+  if (m) {
+    const pg = await env.DB.prepare("SELECT * FROM pages WHERE id = ?").bind(+m[1]).first();
+    if (pg && (pg.user_id === user.id || user.level >= 255)) return room;
+  }
+  throw new BoardError("No such chat room.", 404);
+}
+// Pages from the last 5 minutes nobody has answered, from callers still on the line.
+async function waitingPages(env) {
+  const t = now();
+  return (await env.DB.prepare(
+    "SELECT p.id, p.handle, p.node, p.reason, p.at FROM pages p JOIN line l ON l.user_id = p.user_id AND l.token IS NOT NULL AND l.beat > ? WHERE p.answered = 0 AND p.at > ? ORDER BY p.id"
+  ).bind(t - BEAT_MS, t - 5 * 60_000).all()).results;
+}
+
 async function fileForUser(env, line, user, id) {
   const f = await env.DB.prepare("SELECT f.*, a.side FROM files f JOIN areas a ON a.id = f.area_id WHERE f.id = ?").bind(id || 0).first();
   if (!f || (f.status !== "approved" && user.level < 255)) throw new BoardError("No such file.", 404);
@@ -598,6 +687,23 @@ async function login(req, env, body) {
   const user = publicUser({ ...u, calls: u.calls + 1, last_call: u.last_call });
   if (body.elite && !eliteOk) return json({ notElite: true, user });
   return json({ user, eliteOk, unread: unread.n, timeLeft: timeLeft(env, line), lastCall: u.last_call });
+}
+
+// The SysOp's local console: logs in at the board itself (node 0), so it never takes a phone line.
+async function localLogin(req, env, body) {
+  const db = env.DB;
+  const u = await db.prepare("SELECT * FROM users WHERE handle = ?").bind(clean(body.handle, 30)).first();
+  const pass = typeof body.password === "string" ? body.password.slice(0, 64) : "";
+  if (!u || u.level < 255 || u.banned || !timingSafeEq(await hashPass(pass, u.salt), u.pass_hash)) {
+    throw new BoardError("Local login is for the SysOp only.", 401);
+  }
+  const token = randomHex(24), t = now();
+  await db.batch([
+    db.prepare("INSERT OR REPLACE INTO line (node, token, user_id, handle, activity, since, beat, backdoor, elite_ok, fails, posted, ip_hash, room) VALUES (0, ?, ?, ?, 'Local console', ?, ?, 1, 1, 0, 0, NULL, NULL)").bind(token, u.id, u.handle, t, t),
+    db.prepare("UPDATE users SET last_call = ? WHERE id = ?").bind(t, u.id),
+  ]);
+  const unread = await db.prepare("SELECT COUNT(*) n FROM mail WHERE to_id = ? AND read = 0").bind(u.id).first();
+  return json({ token, node: 0, user: publicUser(u), eliteOk: true, unread: unread.n, lastCall: u.last_call });
 }
 
 async function newUser(req, env, body) {

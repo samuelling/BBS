@@ -17,6 +17,8 @@ past its door.
 - File areas: Utilities, Games, Text Files, ANSI & Graphics, Music, Miscellaneous
 - Private e-mail between users, a one-liner wall, last callers, who's online, user list
 - Bulletins and a door game, *Escape the Tank*
+- **Teleconference**: a live group chat room for everyone online (the Cesspool has its own)
+- **Page the SysOp**: callers page you, your status bar flashes and beeps, and you answer into a live one-on-one chat
 - Text, NFO and ANSI files can be read on-line for free, and ANSI art renders in color
 - Free disk space shows at login, like a real board
 
@@ -40,6 +42,10 @@ past its door.
 - Users: grant or revoke Cesspool access, ban, adjust credit
 - Change the secret entry handle and password
 - Kick a caller off a line
+
+**Local console.** On the dialing directory, `[L]` logs the SysOp in at the board
+itself. It doesn't use a phone line and has no time or idle limit, so you can sit
+there waiting for pages while callers dial in. It shows up as `LCL` in Who's Online.
 
 The first account ever created becomes the SysOp. Call in and make yours
 right after the first deploy.

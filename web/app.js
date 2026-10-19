@@ -12,7 +12,7 @@ const ART = /*__ART__*/null;
 const $ = id => document.getElementById(id);
 const scr = $("scr"), scroll = $("scroll"), crt = $("crt"), kbd = $("kbd"), picker = $("picker");
 const stMode = $("st-mode"), stNode = $("st-node"), stTime = $("st-time"), stUser = $("st-user");
-const bSnd = $("b-snd"), bHang = $("b-hang"), keysEl = $("keys");
+const bSnd = $("b-snd"), bHang = $("b-hang"), keysEl = $("keys"), stPage = $("st-page");
 const live = document.createElement("span");
 scr.appendChild(live);
 
@@ -139,6 +139,10 @@ function outEl(cssClass) {
 let want = null, lastInput = Date.now();
 function renderLive() {
   live.textContent = "";
+  if (want && want.type === "line" && want.prompt) {
+    const pr = document.createElement("span"); pr.className = "prompt"; pr.textContent = want.prompt;
+    live.appendChild(pr);
+  }
   if (want && want.type === "line") {
     const t = document.createElement("span"); t.className = "f15";
     t.textContent = want.mask ? "*".repeat(want.buf.length) : want.buf;
@@ -187,7 +191,7 @@ function anyKey(msg) {
 }
 function readLine(opts = {}) {
   return track((res, rej, entry) => {
-    want = { type: "line", buf: opts.value || "", max: opts.max || 40, mask: !!opts.mask, upper: !!opts.upper, res, entry };
+    want = { type: "line", buf: opts.value || "", max: opts.max || 40, mask: !!opts.mask, upper: !!opts.upper, prompt: opts.prompt || "", noEcho: !!opts.noEcho, res, entry };
     renderLive();
     if (!matchMedia("(pointer: coarse)").matches) kbd.focus({ preventScroll: true });
     drainTypeahead();
@@ -214,7 +218,7 @@ function feed(ch, fromBuffer) {
     }
     return;
   }
-  if (ch === "\r") { want = null; outNow("|15" + (w.mask ? "*".repeat(w.buf.length) : esc(w.buf)) + "|07\n"); renderLive(); w.res(w.buf); return; }
+  if (ch === "\r") { want = null; if (!w.noEcho) outNow("|15" + (w.mask ? "*".repeat(w.buf.length) : esc(w.buf)) + "|07\n"); renderLive(); w.res(w.buf); return; }
   if (ch === "\b") { w.buf = w.buf.slice(0, -1); renderLive(); return; }
   if (ch === "\x1b") return;
   if (ch.length === 1 && ch >= " " && w.buf.length < w.max) { w.buf += w.upper ? ch.toUpperCase() : ch; renderLive(); }
@@ -343,11 +347,23 @@ function act(s) { curAct = s; beat(); }
 let lastBeat = 0;
 function beat(force) {
   if (state !== "online" || !token) return;
-  if (!force && curAct === sentAct && Date.now() - lastBeat < 20000) return;
+  const every = S && S.user && S.user.sysop ? 8000 : 20000;
+  if (!force && curAct === sentAct && Date.now() - lastBeat < every) return;
   sentAct = curAct; lastBeat = Date.now();
   const tk = token;
   fetch(API + "/api/beat", { method: "POST", headers: { "content-type": "application/json", "x-line": tk }, body: JSON.stringify({ act: curAct }) })
-    .then(r => r.json()).then(d => { if (d.carrier === false && token === tk) dropCarrier("|12*** The board hung up on you."); }).catch(() => {});
+    .then(r => r.json()).then(d => {
+      if (d.carrier === false && token === tk) dropCarrier("|12*** The board hung up on you.");
+      else if (typeof d.pages === "number") showPages(d.pages);
+    }).catch(() => {});
+}
+// SysOp only: flash the status bar and beep when callers page.
+let pagesShown = 0;
+function showPages(n) {
+  stPage.hidden = !n;
+  if (n) stPage.textContent = "PAGE! " + n + " caller" + (n > 1 ? "s" : "") + " [!]";
+  if (n > pagesShown && A.ready()) { for (let i = 0; i < 3; i++) A.tone([1200, 1600], i * 0.3, 0.15, 0.25); }
+  pagesShown = n;
 }
 async function guard(fn) {
   try { await fn(); }
@@ -379,8 +395,8 @@ function setMode(m) {
   stMode.textContent = m === "online" ? "ONLINE" : m === "dialing" ? "DIALING" : "OFFLINE";
   bHang.hidden = m === "offline";
   if (m === "online") { onlineAt = Date.now(); lastInput = Date.now(); }
-  stNode.textContent = m === "online" ? "NODE " + myNode : "NODE --";
-  if (m !== "online") stUser.textContent = "ANSI-BBS";
+  stNode.textContent = m === "online" ? (myNode === 0 ? "LOCAL" : "NODE " + myNode) : "NODE --";
+  if (m !== "online") { stUser.textContent = "ANSI-BBS"; showPages(0); }
 }
 function releaseLine() {
   if (!token) return;
@@ -402,7 +418,8 @@ setInterval(() => {
   if (state !== "online") { stTime.textContent = "00:00:00"; return; }
   const s = Math.floor((Date.now() - onlineAt) / 1000);
   stTime.textContent = [s / 3600, (s % 3600) / 60, s % 60].map(x => String(Math.floor(x)).padStart(2, "0")).join(":");
-  if (s >= TIME_MIN * 60) dropCarrier("|12*** Your " + TIME_MIN + " minutes are up. Give somebody else a turn on the line.");
+  if (myNode === 0) beat();
+  else if (s >= TIME_MIN * 60) dropCarrier("|12*** Your " + TIME_MIN + " minutes are up. Give somebody else a turn on the line.");
   else if (Date.now() - lastInput > IDLE_LIMIT_MIN * 60000 && !running) dropCarrier("|12*** Inactivity timeout. Don't hog the line.");
   else beat();
 }, 1000);
@@ -425,11 +442,13 @@ async function dialer() {
       "|09+----+---------------------------+------------------+--------+-------------+\n\n" +
       "|07 The Septic Tankz is a real board with real phone lines. When they're all\n" +
       " in use you get a |12busy signal|07. Try again, or let auto-redial keep trying.\n\n" +
-      "   {D} Dial The Septic Tankz    {A} Auto-redial until it connects    {?} About\n\n" +
+      "   {D} Dial The Septic Tankz    {A} Auto-redial until it connects    {?} About\n" +
+      "   {L} |08Local console (SysOp only, doesn't use a phone line)|07\n\n" +
       "|08 Command: |07"
     );
-    const k = await readKey("DA?");
+    const k = await readKey("DA?L");
     if (k === "?") { await about(); continue; }
+    if (k === "L") { if (await localConsole()) return lobby(); continue; }
     if (k === "D") { if (await dial()) return board(); await anyKey("\n|08[|07press any key to return to the directory|08]"); continue; }
     if (k === "A") {
       for (let tries = 1; tries <= 12; tries++) {
@@ -445,6 +464,29 @@ async function dialer() {
       continue;
     }
   }
+}
+
+// The SysOp sitting at the board's own keyboard: no modem, no phone line, no time limit.
+async function localConsole() {
+  cls();
+  await out("|14 Local console\n" + rule(6) + "|07 For the SysOp at the board itself. Doesn't tie up a phone line, so you can\n wait here for pages while callers dial in.\n\n|07SysOp handle: |15");
+  const handle = (await readLine({ max: 30 })).trim();
+  if (!handle) return false;
+  await out("|07Password: ");
+  const password = await readLine({ max: 64, mask: true });
+  let d;
+  try {
+    const r = await rawFetch("local", { headers: { "content-type": "application/json" }, body: JSON.stringify({ handle, password }) });
+    d = await r.json();
+  } catch (e) { if (e instanceof Hangup) throw e; d = { error: "The board isn't answering." }; }
+  if (!d.token) { await out("|12" + esc(d.error || "No.") + "\n"); await anyKey(); return false; }
+  token = d.token; myNode = 0;
+  try { INFO = await api("info"); LINES = INFO.lines; } catch (e) { if (e instanceof Hangup) throw e; }
+  S = { user: d.user, eliteOk: true, unread: d.unread, lastCall: d.lastCall };
+  setMode("online");
+  await out("|10Local login OK.|07 Callers can still dial in on " + LINES + " line" + (LINES > 1 ? "s" : "") + ".\n");
+  beat(true);
+  return true;
 }
 
 async function about() {
@@ -600,12 +642,13 @@ async function mainMenu() {
       "|09'----------------------------------------------------------------------------'\n\n" +
       "|07   {M} Message Bases        {F} File Areas           {E} E-mail" + (S.unread ? " |14(" + S.unread + " new)" : "") + "\n" +
       "|07   {B} Bulletins            {D} Door Games           {O} One-Liners\n" +
+      "|07   {T} Teleconference       {P} Page the SysOp       {C} Comment to SysOp\n" +
       "|07   {W} Who's Online         {L} Last Callers         {U} User List\n" +
-      "|07   {Y} Your Stats           {C} Comment to SysOp     {G} Goodbye (log off)\n" +
+      "|07   {Y} Your Stats           {G} Goodbye (log off)\n" +
       (u.sysop ? "|07   {!} |14SysOp Console\n" : "") + "\n" +
       "|08[|07" + esc(u.handle) + "|08] |03Main |08(|07" + (u.validated ? "credit " + K(u.credit_main) : "|12unvalidated|07") + ", " + timeLeft() + "m left|08) |15Command: |07"
     );
-    const k = await readKey("MFEBDOWLUYCG" + (u.sysop ? "!" : ""));
+    const k = await readKey("MFEBDOWLUYCGTP" + (u.sysop ? "!" : ""));
     if (k === "M") await guard(() => messageBases("main"));
     else if (k === "F") await guard(() => fileAreas("main"));
     else if (k === "E") await guard(email);
@@ -617,6 +660,8 @@ async function mainMenu() {
     else if (k === "U") await guard(userList);
     else if (k === "Y") await guard(yourStats);
     else if (k === "C") await guard(() => composePost({ id: 5, name: "SysOp Feedback" }, null, "SysOp"));
+    else if (k === "T") await guard(() => chatRoom("tele", "Teleconference"));
+    else if (k === "P") await guard(pageSysop);
     else if (k === "!") await guard(sysopConsole);
     else if (k === "G") { if (await goodbye()) return; }
   }
@@ -644,6 +689,8 @@ async function whoScreen() {
     if (u) await out("|15 " + lpad(n, 3) + "   |14" + pad(esc(u.handle), 22) + " |07" + esc(u.activity) + (u.you ? " |08(you)" : "") + "\n");
     else await out("|08 " + lpad(n, 3) + "   " + pad("-- waiting for caller --", 22) + "\n");
   }
+  const loc = r.nodes.find(x => x.local);
+  if (loc) await out("|12 LCL   |14" + pad(esc(loc.handle), 22) + " |07" + esc(loc.activity) + (loc.you ? " |08(you)" : " |08(SysOp is at the board)") + "\n");
   await anyKey();
 }
 
@@ -1178,13 +1225,110 @@ async function adventure() {
   }
 }
 
+// ================================================================= LIVE CHAT
+// One screen for every kind of chat: lines arrive above your input line while you type.
+async function chatRoom(room, title, opts = {}) {
+  act(opts.act || "Teleconference");
+  const hc = room === "pool" ? "|13" : opts.private ? "|12" : "|11";
+  cls();
+  await out(hc + " " + title + "\n" + rule(room === "pool" ? 5 : opts.private ? 4 : 3) +
+    "|08 Type and press Enter to talk. |07/Q|08 leaves, |07/W|08 shows who's here. Pipe codes (|07!12|08) add color.\n\n");
+  let lastId = 0, members = [], stopped = false, polling = false, misses = 0, timer = null;
+  const tk = token;
+  const show = m => {
+    if (m.kind === "join") outNow("|08*** " + esc(m.handle) + " joined" + "|07\n");
+    else if (m.kind === "leave") outNow("|08*** " + esc(m.handle) + " left" + "|07\n");
+    else {
+      const mine = S && m.handle === S.user.handle;
+      outNow((mine ? "|14" : opts.private ? "|12" : "|11") + "<" + esc(m.handle) + "> |07" + uc(m.text) + "\n");
+    }
+  };
+  const poll = async () => {
+    if (token !== tk || state !== "online") { stopped = true; clearInterval(timer); }
+    if (stopped || polling) return;
+    polling = true;
+    try {
+      const r = await api("chat/poll", { room, after: lastId });
+      if (stopped) return;
+      for (const m of r.msgs) { if (m.id > lastId) { show(m); lastId = m.id; } }
+      const before = members.join(",");
+      members = r.members;
+      if (opts.onMembers) opts.onMembers(members, before);
+      misses = 0;
+    } catch (e) { if (++misses === 3) outNow("|12*** Line noise. Chat messages may be delayed.|07\n"); }
+    finally { polling = false; }
+  };
+  await poll();
+  if (!lastId) outNow("|08 (quiet in here)|07\n");
+  outNow("|08 Here now: |07" + members.map(esc).join(", ") + "\n");
+  timer = setInterval(poll, 1500);
+  try {
+    while (true) {
+      const text = (await readLine({ max: 200, prompt: "> ", noEcho: true })).trim();
+      if (!text) continue;
+      if (/^\/(q|quit|x|exit)$/i.test(text)) break;
+      if (/^\/(w|who)$/i.test(text)) { outNow("|08*** Here now: |07" + members.map(esc).join(", ") + "\n"); continue; }
+      try { await api("chat/say", { room, text }); }
+      catch (e) { if (e instanceof BoardError) outNow("|12*** " + esc(e.message) + "|07\n"); else throw e; }
+      poll();
+    }
+  } finally {
+    stopped = true; clearInterval(timer);
+  }
+  try { await api("chat/leave"); } catch (e) { if (e instanceof Hangup) throw e; }
+}
+
+async function pageSysop() {
+  act("Paging the SysOp");
+  await out("\n|07Why are you paging the SysOp? |15");
+  const reason = (await readLine({ max: 60 })).trim();
+  if (!reason) return;
+  const pg = await api("chat/page", { reason });
+  await out("|08Paging the SysOp");
+  let answered = false;
+  for (let i = 0; i < 15 && !answered; i++) {
+    if (A.ready()) { A.tone([1200], 0, 0.12, 0.2); A.tone([1600], 0.15, 0.12, 0.2); }
+    await out("|08.");
+    await sleep(2000);
+    answered = (await api("chat/pagestatus", { id: pg.id })).answered;
+  }
+  if (!answered) {
+    await out("\n|07" + (pg.sysopOnline ? "The SysOp is busy." : "The SysOp is asleep in the recliner.") + " Leave a comment instead? {Y} Yes  {N} No |15");
+    if ((await readKey("YN")) === "Y") await composePost({ id: 5, name: "SysOp Feedback" }, null, "SysOp");
+    return;
+  }
+  outNow("\n|10*** The SysOp answered! ***|07\n");
+  if (A.ready()) A.tone([880, 1320], 0, 0.3, 0.25);
+  await sleep(700);
+  await chatRoom("page:" + pg.id, "Chat with the SysOp", { private: true, act: "Chatting with the SysOp" });
+}
+
+async function answerPage(rows) {
+  if (!rows.length) { await out("\n|08Nobody's paging right now.\n"); await anyKey(); return; }
+  cls();
+  await out("|12 Callers paging you\n" + rule(4));
+  const sl = rows.slice(0, 9);
+  for (let i = 0; i < sl.length; i++) {
+    const p = sl[i];
+    await out("|07 {" + (i + 1) + "} |14" + pad(esc(p.handle), 20) + "|08node " + p.node + "  " + hm(p.at) + "  |07" + esc(p.reason) + "\n");
+  }
+  await out("\n|07{Q} Back\n|08Answer which? |07");
+  const k = await readKey("123456789".slice(0, sl.length) + "Q");
+  if (k === "Q") return;
+  const r = await api("chat/answer", { id: sl[+k - 1].id });
+  showPages(Math.max(0, rows.length - 1));
+  await chatRoom(r.room, "Chat with " + r.handle, { private: true, act: "Chatting with a caller" });
+}
+
 // ================================================================= SYSOP CONSOLE
 async function sysopConsole() {
   while (true) {
     act("Main menu");
-    const [q, ap, nu] = await Promise.all([api("sysop/queue"), api("sysop/apps"), api("sysop/newusers")]);
+    const [q, ap, nu, pg] = await Promise.all([api("sysop/queue"), api("sysop/apps"), api("sysop/newusers"), api("chat/pages")]);
+    showPages(pg.rows.length);
     cls();
     await out("|14 SysOp Console\n" + rule(6) +
+      "|07   {P} Answer a page        " + (pg.rows.length ? "|12" + pg.rows.length + " caller" + (pg.rows.length > 1 ? "s" : "") + " paging!" : "|08nobody paging") + "\n" +
       "|07   {N} New users            " + (nu.rows.length ? "|14" + nu.rows.length + " waiting" : "|08none waiting") + "\n" +
       "|07   {V} Validate uploads     " + (q.rows.length ? "|14" + q.rows.length + " waiting" : "|08queue empty") + "\n" +
       "|07   {A} Cesspool applications " + (ap.rows.length ? "|14" + ap.rows.length + " open" : "|08none") + "\n" +
@@ -1192,8 +1336,9 @@ async function sysopConsole() {
       "|07   {S} Secret entry (show or change)\n" +
       "|07   {W} Who's online / kick a caller\n" +
       "|07   {Q} Back\n\n|08Command: |07");
-    const k = await readKey("NVAUSWQ");
+    const k = await readKey("PNVAUSWQ");
     if (k === "Q") return;
+    if (k === "P") await guard(() => answerPage(pg.rows));
     if (k === "N") await guard(newUsersAdmin);
     if (k === "V") await guard(validateQueue);
     if (k === "A") await guard(applications);
@@ -1387,16 +1532,17 @@ async function cesspool() {
       "|05.--=[ |13THE CESSPOOL |05]=---------------------------------------------=[ |13ELiTE |05]=--.\n\n" +
       "|07   {F} File Areas             {M} Message Bases        {E} E-mail" + (S.unread ? " |14(" + S.unread + ")" : "") + "\n" +
       "|07   {C} Top Couriers           {L} Last Callers         {W} Who's Online\n" +
-      "|07   {Y} Your Stats             {X} Back to the lamer side\n" +
+      "|07   {T} Teleconference         {Y} Your Stats           {X} Back to the lamer side\n" +
       (u.sysop ? "|07   {!} |14SysOp Console\n" : "") +
       "|07   {G} Goodbye\n\n" +
       "|05[|13" + esc(u.handle) + "|05] |08credit: |15" + K(u.credit_elite) + " |08tl: |15" + timeLeft() + "m |12CMD|08> |07"
     );
-    const k = await readKey("FMECLWYXG" + (u.sysop ? "!" : ""));
+    const k = await readKey("FMECLWYXGT" + (u.sysop ? "!" : ""));
     if (k === "F") await guard(() => fileAreas("elite"));
     else if (k === "M") await guard(() => messageBases("elite"));
     else if (k === "E") await guard(email);
     else if (k === "C") await guard(couriers);
+    else if (k === "T") await guard(() => chatRoom("pool", "Cesspool Teleconference"));
     else if (k === "L") await guard(() => lastCallers("elite"));
     else if (k === "W") await guard(whoScreen);
     else if (k === "Y") await guard(yourStats);
