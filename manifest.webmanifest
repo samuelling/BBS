@@ -1,0 +1,11 @@
+{
+  "name": "The Septic Tankz",
+  "short_name": "Septic Tankz",
+  "description": "A dial-up BBS. Call in, upload, download, post.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "background_color": "#000000",
+  "theme_color": "#15130f",
+  "orientation": "any"
+}

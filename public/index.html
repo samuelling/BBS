@@ -2,6 +2,12 @@
 <title>The Septic Tankz</title>
 <meta name="bbs-api" content="">
 <meta name="description" content="The Septic Tankz: a one-line dial-up BBS. Call in, upload, download, post.">
+<meta name="theme-color" content="#15130f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Septic Tankz">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap">
@@ -37,6 +43,13 @@ body {
 #app { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; max-width: 1180px; margin: 0 auto; }
 .top { display: flex; justify-content: space-between; gap: 12px; color: var(--dim); font-size: 18px; letter-spacing: .06em; text-transform: uppercase; }
 .top b { color: #c9bfa9; font-weight: normal; }
+/* Full screen: the CRT takes the whole display, like a DOS box after Alt+Enter */
+body.full { padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); background: #000; }
+body.full #app { max-width: none; gap: 0; }
+body.full .top { display: none; }
+body.full #bezel { padding: 0; border-radius: 0; background: #000; box-shadow: none; }
+body.full #crt, body.full #crt::after { border-radius: 0; }
+body.full #keys { padding: 6px; background: #000; }
 #bezel {
   flex: 1; min-height: 0; display: flex; padding: 14px; border-radius: 18px;
   background: linear-gradient(180deg, var(--bezel-hi), var(--bezel));
@@ -61,12 +74,16 @@ body {
 }
 .f0{color:var(--c0)}.f1{color:var(--c1)}.f2{color:var(--c2)}.f3{color:var(--c3)}.f4{color:var(--c4)}.f5{color:var(--c5)}.f6{color:var(--c6)}.f7{color:var(--c7)}
 .f8{color:var(--c8)}.f9{color:var(--c9)}.f10{color:var(--c10)}.f11{color:var(--c11)}.f12{color:var(--c12)}.f13{color:var(--c13)}.f14{color:var(--c14)}.f15{color:var(--c15)}
+/* background colors stretch a hair past the glyph box so stacked rows read as one solid panel */
+.b1,.b2,.b3,.b4,.b5,.b6,.b7 { padding-block: 0.07em; }
 .b1{background:var(--c1)}.b2{background:var(--c2)}.b3{background:var(--c3)}.b4{background:var(--c4)}.b5{background:var(--c5)}.b6{background:var(--c6)}.b7{background:var(--c7)}
 .hk { cursor: pointer; border-radius: 2px; }
 .hk .k { color: var(--c14); }
 .hk .br { color: var(--c8); }
 .hk:not(.stale):hover, .hk:not(.stale):focus-visible { background: var(--c1); outline: none; }
 .hk:not(.stale):hover .k { color: var(--c15); }
+.hk.b1:not(.stale):hover, .hk.b1:not(.stale):focus-visible { background: var(--c3); }
+.hk.b1:not(.stale):hover .k { color: var(--c0); }
 .hk.stale { cursor: inherit; }
 .hk.stale .k { color: inherit; }
 .cur { display: inline-block; width: 1ch; color: var(--c7); animation: blink 1s steps(1) infinite; }
@@ -107,7 +124,7 @@ body {
 </style>
 
 <div id="app">
-  <div class="top"><span><b>SEPTIC.FON</b> &middot; DOS terminal</span><span>tap a [key] or type</span></div>
+  <div class="top"><span><b>SEPTICTERM 4.51</b> &middot; DOS terminal</span><span>tap a [key] or type</span></div>
   <div id="bezel">
     <div id="crt">
       <div id="scroll"><pre id="scr" aria-live="polite"></pre></div>
@@ -124,6 +141,7 @@ body {
     <span id="st-time">00:00:00</span>
     <span id="st-page" hidden>PAGE!</span>
     <span class="grow"></span>
+    <button id="b-full" type="button" title="Full screen (Alt+Enter)">FULL</button>
     <button id="b-snd" type="button">SND <span class="on">ON</span></button>
     <button id="b-hang" type="button" hidden>HANG UP</button>
   </div>
@@ -153,7 +171,7 @@ try { const m = MODEMS.find(x => x.id === localStorage.getItem("tankz-modem")); 
 const LOCAL_CPS = 6000;            // the terminal program itself, before you're connected
 let CPS = LOCAL_CPS;
 const IDLE_LIMIT_MIN = 5;
-const ART = {"logo_main": ["|08       - = [ |14t h e|08 ] = -", "|15       _____ ___________ _____ _ _____   _____ ___   _   _  _   __ ______", "|11      /  ___|  ___| ___ \\_   _(_)  __ \\ |_   _/ _ \\ | \\ | || | / /|___  /", "|11      \\ `--.| |__ | |_/ / | |  _| /  \\/   | |/ /_\\ \\|  \\| || |/ /    / /", "|03       `--. \\  __||  __/  | | | | |       | ||  _  || . ` ||    \\   / /", "|03      /\\__/ / |___| |     | | | | \\__/\\   | || | | || |\\  || |\\  \\./ /___", "|01      \\____/\\____/\\_|     \\_/ |_|\\____/   \\_/\\_| |_/\\_| \\_/\\_| \\_/\\_____/"], "logo_elite": ["|13 @@@@@@@  @@@@@@@@   @@@@@@    @@@@@@   @@@@@@@    @@@@@@    @@@@@@   @@@", "|13@@@@@@@@  @@@@@@@@  @@@@@@@   @@@@@@@   @@@@@@@@  @@@@@@@@  @@@@@@@@  @@@", "|05!@@       @@!       !@@       !@@       @@!  @@@  @@!  @@@  @@!  @@@  @@!", "|05!@!       !@!       !@!       !@!       !@!  @!@  !@!  @!@  !@!  @!@  !@!", "|12!@!       @!!!:!    !!@@!!    !!@@!!    @!@@!@!   @!@  !@!  @!@  !@!  @!!", "|12!!!       !!!!!:     !!@!!!    !!@!!!   !!@!!!    !@!  !!!  !@!  !!!  !!!", "|04:!!       !!:            !:!       !:!  !!:       !!:  !!!  !!:  !!!  !!:", "|04:!:       :!:           !:!       !:!   :!:       :!:  !:!  :!:  !:!   :!:", "|08 ::: :::   :: ::::  :::: ::   :::: ::    ::       ::::: ::  ::::: ::   :: ::::", "|08 :: :: :  : :: ::   :: : :    :: : :     :         : :  :    : :  :   : :: : :"], "tank": ["|08 FROM HOUSE                                               TO LEACH FIELD", "|08 |07==========.|08      _[_]_                       _[_]_      |07.=============>", "|08           |07||08     |     |                     |     |     |07|", "|08  .--------|07||08-----'     '---------------------'     '-----|07||08---------.", "|08  |        |07||08  |06^^^^^^^^^^^^^^|08 |06S|08 |06C|08 |06U|08 |06M|08 |06^^^^^^^^^^^^^^^^^^|08  |07||08         |", "|08  |        |07'|08                                             |07'|08         |", "|08  |    |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08   |03E|08 |03F|08 |03F|08 |03L|08 |03U|08 |03E|08 |03N|08 |03T|08   |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08         |", "|08  |                                                                |", "|08  |  |06##########|08  |06S|08 |06L|08 |06U|08 |06D|08 |06G|08 |06E|08  |06###############################|08      |", "|08  '----------------------------------------------------------------'"], "toilet": ["|07              ____________", "|07             |  |15SEPTIC|07    |      |08Thanks for calling", "|07             |__|15TANKZ|07____|      |15THE SEPTIC TANKZ", "|07               |      |", "|07          .----'------'----.        |08Remember: only flush", "|07         (                  )       |08what you've uploaded.", "|07          '.              .'", "|07            '----.  .----'          |11Call back soon.", "|07                 |  |", "|07               __|__|__"]};
+const ART = {"logo_main": ["|08       - = [ |14t h e|08 ] = -", "|15       _____ ___________ _____ _ _____   _____ ___   _   _  _   __ ______", "|11      /  ___|  ___| ___ \\_   _(_)  __ \\ |_   _/ _ \\ | \\ | || | / /|___  /", "|11      \\ `--.| |__ | |_/ / | |  _| /  \\/   | |/ /_\\ \\|  \\| || |/ /    / /", "|03       `--. \\  __||  __/  | | | | |       | ||  _  || . ` ||    \\   / /", "|03      /\\__/ / |___| |     | | | | \\__/\\   | || | | || |\\  || |\\  \\./ /___", "|01      \\____/\\____/\\_|     \\_/ |_|\\____/   \\_/\\_| |_/\\_| \\_/\\_| \\_/\\_____/"], "qterm": [" ____             _   _     _____", "/ ___|  ___ _ __ | |_(_) __|_   _|__ _ __ _ __ ___", "\\___ \\ / _ \\ '_ \\| __| |/ __|| |/ _ \\ '__| '_ ` _ \\", " ___) |  __/ |_) | |_| | (__ | |  __/ |  | | | | | |", "|____/ \\___| .__/ \\__|_|\\___||_|\\___|_|  |_| |_| |_|", "           |_|"], "logo_elite": ["|13 @@@@@@@  @@@@@@@@   @@@@@@    @@@@@@   @@@@@@@    @@@@@@    @@@@@@   @@@", "|13@@@@@@@@  @@@@@@@@  @@@@@@@   @@@@@@@   @@@@@@@@  @@@@@@@@  @@@@@@@@  @@@", "|05!@@       @@!       !@@       !@@       @@!  @@@  @@!  @@@  @@!  @@@  @@!", "|05!@!       !@!       !@!       !@!       !@!  @!@  !@!  @!@  !@!  @!@  !@!", "|12!@!       @!!!:!    !!@@!!    !!@@!!    @!@@!@!   @!@  !@!  @!@  !@!  @!!", "|12!!!       !!!!!:     !!@!!!    !!@!!!   !!@!!!    !@!  !!!  !@!  !!!  !!!", "|04:!!       !!:            !:!       !:!  !!:       !!:  !!!  !!:  !!!  !!:", "|04:!:       :!:           !:!       !:!   :!:       :!:  !:!  :!:  !:!   :!:", "|08 ::: :::   :: ::::  :::: ::   :::: ::    ::       ::::: ::  ::::: ::   :: ::::", "|08 :: :: :  : :: ::   :: : :    :: : :     :         : :  :    : :  :   : :: : :"], "tank": ["|08 FROM HOUSE                                               TO LEACH FIELD", "|08 |07==========.|08      _[_]_                       _[_]_      |07.=============>", "|08           |07||08     |     |                     |     |     |07|", "|08  .--------|07||08-----'     '---------------------'     '-----|07||08---------.", "|08  |        |07||08  |06^^^^^^^^^^^^^^|08 |06S|08 |06C|08 |06U|08 |06M|08 |06^^^^^^^^^^^^^^^^^^|08  |07||08         |", "|08  |        |07'|08                                             |07'|08         |", "|08  |    |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08   |03E|08 |03F|08 |03F|08 |03L|08 |03U|08 |03E|08 |03N|08 |03T|08   |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08 |03~|08         |", "|08  |                                                                |", "|08  |  |06##########|08  |06S|08 |06L|08 |06U|08 |06D|08 |06G|08 |06E|08  |06###############################|08      |", "|08  '----------------------------------------------------------------'"], "toilet": ["|07              ____________", "|07             |  |15SEPTIC|07    |      |08Thanks for calling", "|07             |__|15TANKZ|07____|      |15THE SEPTIC TANKZ", "|07               |      |", "|07          .----'------'----.        |08Remember: only flush", "|07         (                  )       |08what you've uploaded.", "|07          '.              .'", "|07            '----.  .----'          |11Call back soon.", "|07                 |  |", "|07               __|__|__"]};
 
 // ---------------------------------------------------------------- dom
 const $ = id => document.getElementById(id);
@@ -175,7 +193,8 @@ function measure() {
 }
 function fit() {
   const w = scroll.clientWidth - 2 * parseFloat(getComputedStyle(scroll).paddingLeft) - 2;
-  scr.style.fontSize = Math.max(6, Math.min(26, w / charRatio)).toFixed(2) + "px";
+  const cap = document.body.classList.contains("full") ? 44 : 26;   // bigger letters when full screen
+  scr.style.fontSize = Math.max(6, Math.min(cap, w / charRatio)).toFixed(2) + "px";
 }
 measure(); fit();
 if (document.fonts) document.fonts.load("20px VT323").then(() => { measure(); fit(); }).catch(() => {});
@@ -246,7 +265,7 @@ function appendOp(op) {
   if (op.el) { scr.insertBefore(op.el, live); curNode = null; return 1; }
   if (op.hk) {
     const s = document.createElement("span");
-    s.className = "hk"; s.dataset.k = op.hk; s.dataset.g = gen; s.setAttribute("role", "button");
+    s.className = "hk" + (op.bg ? " b" + op.bg : ""); s.dataset.k = op.hk; s.dataset.g = gen; s.setAttribute("role", "button");
     s.innerHTML = '<span class="br">[</span><span class="k"></span><span class="br">]</span>';
     s.querySelector(".k").textContent = op.hk;
     scr.insertBefore(s, live); curNode = null;
@@ -371,6 +390,7 @@ function feed(ch, fromBuffer) {
   if (ch.length === 1 && ch >= " " && w.buf.length < w.max) { w.buf += w.upper ? ch.toUpperCase() : ch; renderLive(); }
 }
 document.addEventListener("keydown", e => {
+  if (e.altKey && e.key === "Enter") { e.preventDefault(); toggleFull(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.target && e.target.tagName === "BUTTON" && (e.key === "Enter" || e.key === " ")) return;
   if (e.key === "Enter") { e.preventDefault(); feed("\r"); }
@@ -495,6 +515,42 @@ try { if (localStorage.getItem("tankz-snd") === "off") A.on = false; } catch (e)
 document.addEventListener("visibilitychange", () => { if (!document.hidden && A.ctx && A.ctx.state !== "running") A.ctx.resume().catch(() => {}); });
 function paintSnd() { bSnd.innerHTML = 'SND <span class="on">' + (A.on ? "ON" : "OFF") + "</span>"; }
 paintSnd();
+// Full screen. Uses the real Fullscreen API where the browser has one (desktop, Android,
+// iPad); iPhone Safari doesn't, so there it fills the window instead. Added to the Home
+// Screen, the board also opens with no browser chrome at all.
+const bFull = $("b-full");
+const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+const canFs = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+function paintFull() {
+  const on = document.body.classList.contains("full");
+  bFull.innerHTML = on ? 'FULL <span class="on">ON</span>' : "FULL";
+  bFull.setAttribute("aria-pressed", String(on));
+}
+async function toggleFull() {
+  const on = document.body.classList.contains("full");
+  if (on) {
+    document.body.classList.remove("full");
+    if (fsEl()) { try { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()); } catch (e) {} }
+  } else {
+    document.body.classList.add("full");
+    if (canFs) {
+      const de = document.documentElement;
+      try { await (de.requestFullscreen ? de.requestFullscreen({ navigationUI: "hide" }) : de.webkitRequestFullscreen()); } catch (e) {}
+    }
+  }
+  paintFull();
+  setTimeout(() => { measure(); fit(); scrollDown(); }, 60);
+}
+// Leaving real full screen with Esc (or the browser's own controls) also leaves our layout.
+["fullscreenchange", "webkitfullscreenchange"].forEach(ev => document.addEventListener(ev, () => {
+  if (!fsEl() && canFs && document.body.classList.contains("full")) { document.body.classList.remove("full"); paintFull(); setTimeout(fit, 60); }
+}));
+bFull.addEventListener("click", toggleFull);
+if (window.matchMedia("(display-mode: standalone), (display-mode: fullscreen)").matches || navigator.standalone) {
+  document.body.classList.add("full"); bFull.hidden = true;
+}
+paintFull();
+
 bSnd.addEventListener("click", () => {
   A.on = !A.on; A.ensure(); if (!A.on) A.cut(); paintSnd();
   try { localStorage.setItem("tankz-snd", A.on ? "on" : "off"); } catch (e) {}
@@ -616,24 +672,79 @@ function timeLeft() { return Math.max(0, TIME_MIN - Math.floor((Date.now() - onl
 window.addEventListener("pagehide", releaseLine);
 
 // ================================================================= DIALER
+// ------------------------------------------------------------ the terminal program (SepticTerm 4.51)
+// A full-width row on the blue screen: pads to 80 columns so the background fills the line.
+const vis = str => str.replace(/\|\d\d/g, "").length;
+function blue(content, bg = 17) { return "|" + bg + content + " ".repeat(Math.max(0, 80 - vis(content))) + "|16\n"; }
+function boxRow(inner) { return blue("|11 ||07" + inner + " ".repeat(Math.max(0, 76 - vis(inner))) + "|11| "); }
+
+let splashed = false;
+async function splash() {
+  if (splashed) return;
+  splashed = true;
+  cls();
+  const day = Math.floor((Date.now() - Date.UTC(1996, 0, 1)) / 86400000) + 1;
+  const title = ART.qterm.map(l => boxRow(" ".repeat(12) + "|14" + l)).join("");
+  const nag = text => boxRow("    |20|15 " + text + " ".repeat(Math.max(0, 66 - text.length)) + " |17");
+  await out(
+    blue("|11 ." + "=".repeat(76) + ". ") +
+    title +
+    boxRow(" ".repeat(56) + "|15Version 4.51") +
+    boxRow("          |15The Professional Communications Program for the IBM PC") +
+    boxRow("   |07Copyright (c) 1989-1996 Leach Field Software.  All Rights Reserved.") +
+    boxRow("") +
+    nag("U N R E G I S T E R E D    E V A L U A T I O N    C O P Y") +
+    nag("") +
+    nag("This is day " + day.toLocaleString("en-US") + " of your 30-day evaluation period.") +
+    nag("Please register: you get the printed manual and the warm feeling") +
+    nag("of supporting shareware.") +
+    blue("|11 '" + "=".repeat(76) + "' ")
+  );
+  const init = [
+    ["Loading configuration", "SEPTIC.CFG"],
+    ["Reading dialing directory", "SEPTIC.FON (3 entries)"],
+    MODEM.telnet ? ["Loading packet driver", "OK"] : ["Initializing COM2: " + MODEM.id + " N81", "OK"],
+    MODEM.telnet ? ["Attaching TCP/IP stack", "OK"] : ["Sending init string ATZ&F1&C1&D2", "OK"],
+  ];
+  for (const [label, res] of init) {
+    const line = "|07  " + label + " |08" + ".".repeat(Math.max(2, 52 - label.length)) + " ";
+    await sleep(220);
+    await out(blue(line + (res === "OK" ? "|10" : "|15") + res));
+  }
+  await out(blue("                        |15Press any key to continue..."));
+  const k = readKey(null); k.catch(() => {});
+  await Promise.race([k, sleep(6000)]);
+  if (want) { want = null; renderLive(); }
+}
+
 async function dialer() {
   setMode("offline");
   while (true) {
     cls();
+    const now = new Date();
+    const stamp = String(now.getMonth() + 1).padStart(2, "0") + "/" + String(now.getDate()).padStart(2, "0") + "/" + String(now.getFullYear()).slice(-2) + "  " + hm(now.getTime());
+    const rule80 = blue("|11 " + "=".repeat(78) + " ");
+    const head = "|15 SepticTerm Dialing Directory: |14SEPTIC.FON";
+    const entry = (n, name, num, baud, last, hl) => {
+      const txt = "  " + lpad(n, 2) + "  " + pad(name, 28) + " " + pad(num, 17) + "  " + pad(baud, 7) + " " + last;
+      return hl ? blue("|00" + txt, 19) : blue("|07" + txt);
+    };
     await out(
-      "|15 SEPTIC.FON |08- |07Dialing Directory                               |08v2.1\n" +
-      "|09+----+---------------------------+------------------+--------+-------------+\n" +
-      "|09||11 ## |09||11 " + pad("Name", 26) + "|09||11 " + pad("Number", 17) + "|09||11 " + pad("Baud", 7) + "|09||11 " + pad("Protocol", 12) + "|09|\n" +
-      "|09+----+---------------------------+------------------+--------+-------------+\n" +
-      "|09||15  1 |09||14 " + pad("The Septic Tankz", 26) + "|09||07 " + pad(PHONE, 17) + "|09||07 " + pad(MODEM.telnet ? "telnet" : MODEM.id, 7) + "|09||07 Zmodem      |09|\n" +
-      "|09||08  2 |09||08 " + pad("The Grease Trap", 26) + "|09||08 " + pad("[unlisted]", 17) + "|09||08 2400   |09||08 Xmodem      |09|\n" +
-      "|09||08  3 |09||08 " + pad("Mom's House (voice!)", 26) + "|09||08 " + pad("do not dial", 17) + "|09||08 --     |09||08 --          |09|\n" +
-      "|09+----+---------------------------+------------------+--------+-------------+\n\n" +
-      "|07 The Septic Tankz is a real board with real phone lines. When they're all\n" +
-      " in use you get a |12busy signal|07. Try again, or let auto-redial keep trying.\n\n" +
-      "   {D} Dial The Septic Tankz    {A} Auto-redial until it connects    {?} About\n" +
-      "   {S} Modem: |15" + MODEM.label + "|07 (change)      {L} |08Local console (SysOp only)|07\n\n" +
-      "|08 Command: |07"
+      blue(head + " ".repeat(Math.max(1, 79 - vis(head) - stamp.length)) + "|07" + stamp) +
+      rule80 +
+      blue("|11  ##  " + pad("Name", 28) + " " + pad("Number", 17) + "  " + pad("Baud", 7) + " Last call") +
+      blue("|03  --  " + "-".repeat(28) + " " + "-".repeat(17) + "  " + "-".repeat(7) + " ---------") +
+      entry(1, "The Septic Tankz", PHONE, MODEM.telnet ? "telnet" : MODEM.id, "today", true) +
+      entry(2, "The Grease Trap", "[unlisted]", "2400", "06/12/96", false) +
+      entry(3, "Mom's House (voice!)", "do not dial", "--", "never", false) +
+      blue("") +
+      rule80 +
+      blue("|07  The Septic Tankz is a real board with real phone lines. When they're all in") +
+      blue("|07  use you get a |12busy signal|07. Try again, or let auto-redial keep trying.") +
+      rule80 +
+      blue("|07 {D} Dial  {A} Auto-redial  {S} Modem: |15" + pad(MODEM.telnet ? "Ethernet" : MODEM.label, 9) + "|07 {L} Local console  {?} About") +
+      rule80 +
+      "\n|08 Command: |07"
     );
     const k = await readKey("DA?LS");
     if (k === "S") { await pickModem(); continue; }
@@ -1824,7 +1935,7 @@ async function couriers() {
 }
 
 // ---------------------------------------------------------------- boot
-run(dialer);
+run(async () => { await splash(); await dialer(); });
 
 </script>
 

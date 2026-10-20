@@ -1,6 +1,12 @@
 <title>The Septic Tankz</title>
 <meta name="bbs-api" content="/*__API__*/">
 <meta name="description" content="The Septic Tankz: a one-line dial-up BBS. Call in, upload, download, post.">
+<meta name="theme-color" content="#15130f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Septic Tankz">
+<link rel="manifest" href="/*__BASE__*/manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap">
@@ -36,6 +42,13 @@ body {
 #app { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; max-width: 1180px; margin: 0 auto; }
 .top { display: flex; justify-content: space-between; gap: 12px; color: var(--dim); font-size: 18px; letter-spacing: .06em; text-transform: uppercase; }
 .top b { color: #c9bfa9; font-weight: normal; }
+/* Full screen: the CRT takes the whole display, like a DOS box after Alt+Enter */
+body.full { padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); background: #000; }
+body.full #app { max-width: none; gap: 0; }
+body.full .top { display: none; }
+body.full #bezel { padding: 0; border-radius: 0; background: #000; box-shadow: none; }
+body.full #crt, body.full #crt::after { border-radius: 0; }
+body.full #keys { padding: 6px; background: #000; }
 #bezel {
   flex: 1; min-height: 0; display: flex; padding: 14px; border-radius: 18px;
   background: linear-gradient(180deg, var(--bezel-hi), var(--bezel));
@@ -60,12 +73,16 @@ body {
 }
 .f0{color:var(--c0)}.f1{color:var(--c1)}.f2{color:var(--c2)}.f3{color:var(--c3)}.f4{color:var(--c4)}.f5{color:var(--c5)}.f6{color:var(--c6)}.f7{color:var(--c7)}
 .f8{color:var(--c8)}.f9{color:var(--c9)}.f10{color:var(--c10)}.f11{color:var(--c11)}.f12{color:var(--c12)}.f13{color:var(--c13)}.f14{color:var(--c14)}.f15{color:var(--c15)}
+/* background colors stretch a hair past the glyph box so stacked rows read as one solid panel */
+.b1,.b2,.b3,.b4,.b5,.b6,.b7 { padding-block: 0.07em; }
 .b1{background:var(--c1)}.b2{background:var(--c2)}.b3{background:var(--c3)}.b4{background:var(--c4)}.b5{background:var(--c5)}.b6{background:var(--c6)}.b7{background:var(--c7)}
 .hk { cursor: pointer; border-radius: 2px; }
 .hk .k { color: var(--c14); }
 .hk .br { color: var(--c8); }
 .hk:not(.stale):hover, .hk:not(.stale):focus-visible { background: var(--c1); outline: none; }
 .hk:not(.stale):hover .k { color: var(--c15); }
+.hk.b1:not(.stale):hover, .hk.b1:not(.stale):focus-visible { background: var(--c3); }
+.hk.b1:not(.stale):hover .k { color: var(--c0); }
 .hk.stale { cursor: inherit; }
 .hk.stale .k { color: inherit; }
 .cur { display: inline-block; width: 1ch; color: var(--c7); animation: blink 1s steps(1) infinite; }
@@ -106,7 +123,7 @@ body {
 </style>
 
 <div id="app">
-  <div class="top"><span><b>SEPTIC.FON</b> &middot; DOS terminal</span><span>tap a [key] or type</span></div>
+  <div class="top"><span><b>SEPTICTERM 4.51</b> &middot; DOS terminal</span><span>tap a [key] or type</span></div>
   <div id="bezel">
     <div id="crt">
       <div id="scroll"><pre id="scr" aria-live="polite"></pre></div>
@@ -123,6 +140,7 @@ body {
     <span id="st-time">00:00:00</span>
     <span id="st-page" hidden>PAGE!</span>
     <span class="grow"></span>
+    <button id="b-full" type="button" title="Full screen (Alt+Enter)">FULL</button>
     <button id="b-snd" type="button">SND <span class="on">ON</span></button>
     <button id="b-hang" type="button" hidden>HANG UP</button>
   </div>

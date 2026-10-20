@@ -43,7 +43,8 @@ function measure() {
 }
 function fit() {
   const w = scroll.clientWidth - 2 * parseFloat(getComputedStyle(scroll).paddingLeft) - 2;
-  scr.style.fontSize = Math.max(6, Math.min(26, w / charRatio)).toFixed(2) + "px";
+  const cap = document.body.classList.contains("full") ? 44 : 26;   // bigger letters when full screen
+  scr.style.fontSize = Math.max(6, Math.min(cap, w / charRatio)).toFixed(2) + "px";
 }
 measure(); fit();
 if (document.fonts) document.fonts.load("20px VT323").then(() => { measure(); fit(); }).catch(() => {});
@@ -114,7 +115,7 @@ function appendOp(op) {
   if (op.el) { scr.insertBefore(op.el, live); curNode = null; return 1; }
   if (op.hk) {
     const s = document.createElement("span");
-    s.className = "hk"; s.dataset.k = op.hk; s.dataset.g = gen; s.setAttribute("role", "button");
+    s.className = "hk" + (op.bg ? " b" + op.bg : ""); s.dataset.k = op.hk; s.dataset.g = gen; s.setAttribute("role", "button");
     s.innerHTML = '<span class="br">[</span><span class="k"></span><span class="br">]</span>';
     s.querySelector(".k").textContent = op.hk;
     scr.insertBefore(s, live); curNode = null;
@@ -239,6 +240,7 @@ function feed(ch, fromBuffer) {
   if (ch.length === 1 && ch >= " " && w.buf.length < w.max) { w.buf += w.upper ? ch.toUpperCase() : ch; renderLive(); }
 }
 document.addEventListener("keydown", e => {
+  if (e.altKey && e.key === "Enter") { e.preventDefault(); toggleFull(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.target && e.target.tagName === "BUTTON" && (e.key === "Enter" || e.key === " ")) return;
   if (e.key === "Enter") { e.preventDefault(); feed("\r"); }
@@ -363,6 +365,42 @@ try { if (localStorage.getItem("tankz-snd") === "off") A.on = false; } catch (e)
 document.addEventListener("visibilitychange", () => { if (!document.hidden && A.ctx && A.ctx.state !== "running") A.ctx.resume().catch(() => {}); });
 function paintSnd() { bSnd.innerHTML = 'SND <span class="on">' + (A.on ? "ON" : "OFF") + "</span>"; }
 paintSnd();
+// Full screen. Uses the real Fullscreen API where the browser has one (desktop, Android,
+// iPad); iPhone Safari doesn't, so there it fills the window instead. Added to the Home
+// Screen, the board also opens with no browser chrome at all.
+const bFull = $("b-full");
+const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+const canFs = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+function paintFull() {
+  const on = document.body.classList.contains("full");
+  bFull.innerHTML = on ? 'FULL <span class="on">ON</span>' : "FULL";
+  bFull.setAttribute("aria-pressed", String(on));
+}
+async function toggleFull() {
+  const on = document.body.classList.contains("full");
+  if (on) {
+    document.body.classList.remove("full");
+    if (fsEl()) { try { await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen()); } catch (e) {} }
+  } else {
+    document.body.classList.add("full");
+    if (canFs) {
+      const de = document.documentElement;
+      try { await (de.requestFullscreen ? de.requestFullscreen({ navigationUI: "hide" }) : de.webkitRequestFullscreen()); } catch (e) {}
+    }
+  }
+  paintFull();
+  setTimeout(() => { measure(); fit(); scrollDown(); }, 60);
+}
+// Leaving real full screen with Esc (or the browser's own controls) also leaves our layout.
+["fullscreenchange", "webkitfullscreenchange"].forEach(ev => document.addEventListener(ev, () => {
+  if (!fsEl() && canFs && document.body.classList.contains("full")) { document.body.classList.remove("full"); paintFull(); setTimeout(fit, 60); }
+}));
+bFull.addEventListener("click", toggleFull);
+if (window.matchMedia("(display-mode: standalone), (display-mode: fullscreen)").matches || navigator.standalone) {
+  document.body.classList.add("full"); bFull.hidden = true;
+}
+paintFull();
+
 bSnd.addEventListener("click", () => {
   A.on = !A.on; A.ensure(); if (!A.on) A.cut(); paintSnd();
   try { localStorage.setItem("tankz-snd", A.on ? "on" : "off"); } catch (e) {}
@@ -484,24 +522,79 @@ function timeLeft() { return Math.max(0, TIME_MIN - Math.floor((Date.now() - onl
 window.addEventListener("pagehide", releaseLine);
 
 // ================================================================= DIALER
+// ------------------------------------------------------------ the terminal program (SepticTerm 4.51)
+// A full-width row on the blue screen: pads to 80 columns so the background fills the line.
+const vis = str => str.replace(/\|\d\d/g, "").length;
+function blue(content, bg = 17) { return "|" + bg + content + " ".repeat(Math.max(0, 80 - vis(content))) + "|16\n"; }
+function boxRow(inner) { return blue("|11 ||07" + inner + " ".repeat(Math.max(0, 76 - vis(inner))) + "|11| "); }
+
+let splashed = false;
+async function splash() {
+  if (splashed) return;
+  splashed = true;
+  cls();
+  const day = Math.floor((Date.now() - Date.UTC(1996, 0, 1)) / 86400000) + 1;
+  const title = ART.qterm.map(l => boxRow(" ".repeat(12) + "|14" + l)).join("");
+  const nag = text => boxRow("    |20|15 " + text + " ".repeat(Math.max(0, 66 - text.length)) + " |17");
+  await out(
+    blue("|11 ." + "=".repeat(76) + ". ") +
+    title +
+    boxRow(" ".repeat(56) + "|15Version 4.51") +
+    boxRow("          |15The Professional Communications Program for the IBM PC") +
+    boxRow("   |07Copyright (c) 1989-1996 Leach Field Software.  All Rights Reserved.") +
+    boxRow("") +
+    nag("U N R E G I S T E R E D    E V A L U A T I O N    C O P Y") +
+    nag("") +
+    nag("This is day " + day.toLocaleString("en-US") + " of your 30-day evaluation period.") +
+    nag("Please register: you get the printed manual and the warm feeling") +
+    nag("of supporting shareware.") +
+    blue("|11 '" + "=".repeat(76) + "' ")
+  );
+  const init = [
+    ["Loading configuration", "SEPTIC.CFG"],
+    ["Reading dialing directory", "SEPTIC.FON (3 entries)"],
+    MODEM.telnet ? ["Loading packet driver", "OK"] : ["Initializing COM2: " + MODEM.id + " N81", "OK"],
+    MODEM.telnet ? ["Attaching TCP/IP stack", "OK"] : ["Sending init string ATZ&F1&C1&D2", "OK"],
+  ];
+  for (const [label, res] of init) {
+    const line = "|07  " + label + " |08" + ".".repeat(Math.max(2, 52 - label.length)) + " ";
+    await sleep(220);
+    await out(blue(line + (res === "OK" ? "|10" : "|15") + res));
+  }
+  await out(blue("                        |15Press any key to continue..."));
+  const k = readKey(null); k.catch(() => {});
+  await Promise.race([k, sleep(6000)]);
+  if (want) { want = null; renderLive(); }
+}
+
 async function dialer() {
   setMode("offline");
   while (true) {
     cls();
+    const now = new Date();
+    const stamp = String(now.getMonth() + 1).padStart(2, "0") + "/" + String(now.getDate()).padStart(2, "0") + "/" + String(now.getFullYear()).slice(-2) + "  " + hm(now.getTime());
+    const rule80 = blue("|11 " + "=".repeat(78) + " ");
+    const head = "|15 SepticTerm Dialing Directory: |14SEPTIC.FON";
+    const entry = (n, name, num, baud, last, hl) => {
+      const txt = "  " + lpad(n, 2) + "  " + pad(name, 28) + " " + pad(num, 17) + "  " + pad(baud, 7) + " " + last;
+      return hl ? blue("|00" + txt, 19) : blue("|07" + txt);
+    };
     await out(
-      "|15 SEPTIC.FON |08- |07Dialing Directory                               |08v2.1\n" +
-      "|09+----+---------------------------+------------------+--------+-------------+\n" +
-      "|09||11 ## |09||11 " + pad("Name", 26) + "|09||11 " + pad("Number", 17) + "|09||11 " + pad("Baud", 7) + "|09||11 " + pad("Protocol", 12) + "|09|\n" +
-      "|09+----+---------------------------+------------------+--------+-------------+\n" +
-      "|09||15  1 |09||14 " + pad("The Septic Tankz", 26) + "|09||07 " + pad(PHONE, 17) + "|09||07 " + pad(MODEM.telnet ? "telnet" : MODEM.id, 7) + "|09||07 Zmodem      |09|\n" +
-      "|09||08  2 |09||08 " + pad("The Grease Trap", 26) + "|09||08 " + pad("[unlisted]", 17) + "|09||08 2400   |09||08 Xmodem      |09|\n" +
-      "|09||08  3 |09||08 " + pad("Mom's House (voice!)", 26) + "|09||08 " + pad("do not dial", 17) + "|09||08 --     |09||08 --          |09|\n" +
-      "|09+----+---------------------------+------------------+--------+-------------+\n\n" +
-      "|07 The Septic Tankz is a real board with real phone lines. When they're all\n" +
-      " in use you get a |12busy signal|07. Try again, or let auto-redial keep trying.\n\n" +
-      "   {D} Dial The Septic Tankz    {A} Auto-redial until it connects    {?} About\n" +
-      "   {S} Modem: |15" + MODEM.label + "|07 (change)      {L} |08Local console (SysOp only)|07\n\n" +
-      "|08 Command: |07"
+      blue(head + " ".repeat(Math.max(1, 79 - vis(head) - stamp.length)) + "|07" + stamp) +
+      rule80 +
+      blue("|11  ##  " + pad("Name", 28) + " " + pad("Number", 17) + "  " + pad("Baud", 7) + " Last call") +
+      blue("|03  --  " + "-".repeat(28) + " " + "-".repeat(17) + "  " + "-".repeat(7) + " ---------") +
+      entry(1, "The Septic Tankz", PHONE, MODEM.telnet ? "telnet" : MODEM.id, "today", true) +
+      entry(2, "The Grease Trap", "[unlisted]", "2400", "06/12/96", false) +
+      entry(3, "Mom's House (voice!)", "do not dial", "--", "never", false) +
+      blue("") +
+      rule80 +
+      blue("|07  The Septic Tankz is a real board with real phone lines. When they're all in") +
+      blue("|07  use you get a |12busy signal|07. Try again, or let auto-redial keep trying.") +
+      rule80 +
+      blue("|07 {D} Dial  {A} Auto-redial  {S} Modem: |15" + pad(MODEM.telnet ? "Ethernet" : MODEM.label, 9) + "|07 {L} Local console  {?} About") +
+      rule80 +
+      "\n|08 Command: |07"
     );
     const k = await readKey("DA?LS");
     if (k === "S") { await pickModem(); continue; }
@@ -1692,4 +1785,4 @@ async function couriers() {
 }
 
 // ---------------------------------------------------------------- boot
-run(dialer);
+run(async () => { await splash(); await dialer(); });

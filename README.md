@@ -16,6 +16,10 @@ past its door.
 - Message bases: General Chat, Tech & Modems, For Sale / Wanted, Games & Doors, SysOp Feedback
 - File areas: Utilities, Games, Text Files, ANSI & Graphics, Music, Miscellaneous
 - Private e-mail between users, a one-liner wall, last callers, who's online, user list
+- **SepticTerm 4.51**, the board's own QModem-style terminal program: a blue startup screen with an
+  "unregistered evaluation copy" nag, then a dialing directory with a highlight bar.
+- **Full screen**: the FULL button or Alt+Enter, like a DOS box. On iPhone, Share → Add to Home Screen
+  opens the board with no browser chrome at all.
 - **Modems from 300 baud to 56k, or Ethernet.** Pick one with `[S]` on the dialing screen. Each has its own
   handshake song and `CONNECT` string, and screens and transfer meters run at that speed (tap to fast-forward).
   Ethernet skips the modem and connects like telnet. The choice is remembered per browser.

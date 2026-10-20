@@ -18,6 +18,7 @@ def shade(lines, colors, indent=0):
 
 ART = {}
 ART["logo_main"] = ["|08" + " " * 7 + "- = [ |14t h e|08 ] = -"] + shade(fig("SEPTiC TANKZ", "doom"), [15, 11, 11, 3, 3, 1], 6)
+ART["qterm"] = fig("SepticTerm", "standard")   # the terminal program's own splash title (plain, colored in app.js)
 ART["logo_elite"] = shade(fig("CESSPOOL", "poison"), [13, 13, 5, 5, 12, 12, 4, 4, 8, 8])
 
 TANK = [
@@ -74,7 +75,7 @@ app = (ROOT / "web" / "app.js").read_text().replace("/*__ART__*/null", json.dump
 page = shell.replace("/*__APP__*/", app)
 doc = lambda api: ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
                    '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>\n'
-                   + page.replace("/*__API__*/", api) + "\n</body></html>\n")
+                   + page.replace("/*__API__*/", api).replace("/*__BASE__*/", "") + "\n</body></html>\n")
 (ROOT / "public").mkdir(exist_ok=True)
 (ROOT / "public" / "index.html").write_text(doc(""))
 (ROOT / "index.html").write_text(doc(cfg.get("api_base", "")))
