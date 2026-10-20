@@ -522,7 +522,7 @@ function timeLeft() { return Math.max(0, TIME_MIN - Math.floor((Date.now() - onl
 window.addEventListener("pagehide", releaseLine);
 
 // ================================================================= DIALER
-// ------------------------------------------------------------ the terminal program (SepticTerm 4.51)
+// ------------------------------------------------------------ the terminal program (Q-Slodem 4.51)
 // A full-width row on the blue screen: pads to 80 columns so the background fills the line.
 const vis = str => str.replace(/\|\d\d/g, "").length;
 function blue(content, bg = 17) { return "|" + bg + content + " ".repeat(Math.max(0, 80 - vis(content))) + "|16\n"; }
@@ -534,7 +534,7 @@ async function splash() {
   splashed = true;
   cls();
   const day = Math.floor((Date.now() - Date.UTC(1996, 0, 1)) / 86400000) + 1;
-  const title = ART.qterm.map(l => boxRow(" ".repeat(12) + "|14" + l)).join("");
+  const title = ART.qterm.map(l => boxRow(" ".repeat(14) + "|14" + l)).join("");
   const nag = text => boxRow("    |20|15 " + text + " ".repeat(Math.max(0, 66 - text.length)) + " |17");
   await out(
     blue("|11 ." + "=".repeat(76) + ". ") +
@@ -551,8 +551,8 @@ async function splash() {
     blue("|11 '" + "=".repeat(76) + "' ")
   );
   const init = [
-    ["Loading configuration", "SEPTIC.CFG"],
-    ["Reading dialing directory", "SEPTIC.FON (3 entries)"],
+    ["Loading configuration", "QSLODEM.CFG"],
+    ["Reading dialing directory", "QSLODEM.FON (3 entries)"],
     MODEM.telnet ? ["Loading packet driver", "OK"] : ["Initializing COM2: " + MODEM.id + " N81", "OK"],
     MODEM.telnet ? ["Attaching TCP/IP stack", "OK"] : ["Sending init string ATZ&F1&C1&D2", "OK"],
   ];
@@ -574,7 +574,7 @@ async function dialer() {
     const now = new Date();
     const stamp = String(now.getMonth() + 1).padStart(2, "0") + "/" + String(now.getDate()).padStart(2, "0") + "/" + String(now.getFullYear()).slice(-2) + "  " + hm(now.getTime());
     const rule80 = blue("|11 " + "=".repeat(78) + " ");
-    const head = "|15 SepticTerm Dialing Directory: |14SEPTIC.FON";
+    const head = "|15 Q-Slodem Dialing Directory: |14QSLODEM.FON";
     const entry = (n, name, num, baud, last, hl) => {
       const txt = "  " + lpad(n, 2) + "  " + pad(name, 28) + " " + pad(num, 17) + "  " + pad(baud, 7) + " " + last;
       return hl ? blue("|00" + txt, 19) : blue("|07" + txt);

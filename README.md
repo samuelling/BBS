@@ -16,7 +16,7 @@ past its door.
 - Message bases: General Chat, Tech & Modems, For Sale / Wanted, Games & Doors, SysOp Feedback
 - File areas: Utilities, Games, Text Files, ANSI & Graphics, Music, Miscellaneous
 - Private e-mail between users, a one-liner wall, last callers, who's online, user list
-- **SepticTerm 4.51**, the board's own QModem-style terminal program: a blue startup screen with an
+- **Q-Slodem 4.51**, the board's own QModem-style terminal program: a blue startup screen with an
   "unregistered evaluation copy" nag, then a dialing directory with a highlight bar.
 - **Full screen**: the FULL button or Alt+Enter, like a DOS box. On iPhone, Share → Add to Home Screen
   opens the board with no browser chrome at all.

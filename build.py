@@ -18,7 +18,7 @@ def shade(lines, colors, indent=0):
 
 ART = {}
 ART["logo_main"] = ["|08" + " " * 7 + "- = [ |14t h e|08 ] = -"] + shade(fig("SEPTiC TANKZ", "doom"), [15, 11, 11, 3, 3, 1], 6)
-ART["qterm"] = fig("SepticTerm", "standard")   # the terminal program's own splash title (plain, colored in app.js)
+ART["qterm"] = fig("Q-Slodem", "standard")   # the terminal program's own splash title (plain, colored in app.js)
 ART["logo_elite"] = shade(fig("CESSPOOL", "poison"), [13, 13, 5, 5, 12, 12, 4, 4, 8, 8])
 
 TANK = [
