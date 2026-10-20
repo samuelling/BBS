@@ -145,16 +145,37 @@ async function tg(env, method, payload, token) {
   return d.result;
 }
 const htmlEsc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-// Returns true if sent, false if notifications aren't set up.
-async function notifySend(env, title, message) {
-  const chat = await config(env, "tg_chat");
-  if (!chat || !(await config(env, "tg_token"))) return false;
+// Slack: an incoming-webhook URL the SysOp pastes in (it posts into the channel picked when making it).
+const SLACK_HOOK = /^https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9]+\/[A-Za-z0-9]+\/[A-Za-z0-9]+$/;
+async function slack(env, hook, title, message) {
   const link = await config(env, "board_url");
-  await tg(env, "sendMessage", {
-    chat_id: chat, parse_mode: "HTML", disable_web_page_preview: true,
-    text: "<b>" + htmlEsc(title) + "</b>\n" + htmlEsc(message) + (link ? '\n<a href="' + htmlEsc(link) + '">Open the board</a>' : ""),
+  const e = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const r = await fetch(hook, {
+    method: "POST", headers: { "content-type": "application/json" }, signal: AbortSignal.timeout(6000),
+    body: JSON.stringify({ text: "*" + e(title) + "*\n" + e(message) + (link ? "\n<" + link + "|Open the board>" : ""), unfurl_links: false }),
   });
-  return true;
+  if (!r.ok) throw new Error("Slack " + r.status + ": " + (await r.text().catch(() => "")).slice(0, 80));
+}
+async function notifyOn(env) {
+  return !!((await config(env, "slack_hook")) || ((await config(env, "tg_chat")) && (await config(env, "tg_token"))));
+}
+// Sends to every channel that's set up. Returns how many got it; throws only if all of them failed.
+async function notifySend(env, title, message) {
+  const sends = [];
+  const hook = await config(env, "slack_hook");
+  if (hook) sends.push(slack(env, hook, title, message));
+  const chat = await config(env, "tg_chat");
+  if (chat && (await config(env, "tg_token"))) {
+    const link = await config(env, "board_url");
+    sends.push(tg(env, "sendMessage", {
+      chat_id: chat, parse_mode: "HTML", disable_web_page_preview: true,
+      text: "<b>" + htmlEsc(title) + "</b>\n" + htmlEsc(message) + (link ? '\n<a href="' + htmlEsc(link) + '">Open the board</a>' : ""),
+    }));
+  }
+  const res = await Promise.allSettled(sends);
+  const ok = res.filter(x => x.status === "fulfilled").length;
+  if (sends.length && !ok) throw res[0].reason;
+  return ok;
 }
 async function waitingCounts(env) {
   const r = await env.DB.batch([
@@ -179,7 +200,7 @@ async function notifySummary(env) {
 }
 // Something new landed in a SysOp queue.
 async function notifyQueue(env) {
-  if (!(await config(env, "tg_chat"))) return;
+  if (!(await notifyOn(env))) return;
   const last = +(await config(env, "notify_last") || 0);
   if (now() - last < NOTIFY_GAP) return setConfig(env, "notify_pending", "1");
   await notifySummary(env);
@@ -693,8 +714,20 @@ async function route(path, req, env) {
         if (!sent) throw new BoardError("Finish setting it up first.");
       }
       if (body.op === "off") await delConfig(env, "tg_token", "tg_bot", "tg_chat", "tg_name");
-      const [bot, chat, name, tok] = await Promise.all(["tg_bot", "tg_chat", "tg_name", "tg_token"].map(k => config(env, k)));
-      return json({ bot: bot || null, hasToken: !!tok, on: !!chat, name: name || null, waiting: await waitingCounts(env) });
+      if (body.op === "slack") {
+        const hook = String(body.hook || "").trim();
+        if (!hook) await delConfig(env, "slack_hook");
+        else {
+          const testing = (await config(env, "tg_api")) && /^http:\/\/127\.0\.0\.1:\d+\//.test(hook);   // local tests only
+          if (!SLACK_HOOK.test(hook) && !testing) throw new BoardError("That isn't a Slack webhook URL. They start with https://hooks.slack.com/services/");
+          await setConfig(env, "board_url", new URL(req.url).origin);
+          try { await slack(env, hook, "The Septic Tankz", "Connected. The board will post here when things need your attention."); }
+          catch (e) { throw new BoardError("Slack didn't take it (" + e.message + ")."); }
+          await setConfig(env, "slack_hook", hook);
+        }
+      }
+      const [bot, chat, name, tok, hook] = await Promise.all(["tg_bot", "tg_chat", "tg_name", "tg_token", "slack_hook"].map(k => config(env, k)));
+      return json({ bot: bot || null, hasToken: !!tok, tgOn: !!(chat && tok), name: name || null, slackOn: !!hook, waiting: await waitingCounts(env) });
     }
     case "sysop/lines": {
       requireSysop(user);

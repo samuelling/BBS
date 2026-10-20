@@ -1735,7 +1735,7 @@ async function sysopConsole() {
       "|07   {S} Secret entry (show or change)\n" +
       "|07   {W} Who's online / kick a caller\n" +
       "|07   {L} Phone lines              |08" + LINES + " line" + (LINES > 1 ? "s" : "") + " installed\n" +
-      "|07   {O} Notify my phone          " + (nt.on ? "|10on" : "|08off") + "\n" +
+      "|07   {O} Notify me (Slack/Telegram) " + (nt.slackOn || nt.tgOn ? "|10on" : "|08off") + "\n" +
       "|07   {Q} Back\n\n" +
       "|08 Usage stats dashboard: |07" + ((API || location.origin) + "/sysop/").replace(/^https?:\/\//, "") + "\n\n|08Command: |07");
     const k = await readKey("PNVAUSWLOQ");
@@ -1751,26 +1751,58 @@ async function sysopConsole() {
     if (k === "O") await guard(notifyAdmin);
   }
 }
-// Phone notifications through a Telegram bot the SysOp makes (free; the board messages it).
+// SysOp notifications: a Slack channel (incoming webhook) and/or a Telegram bot.
 async function notifyAdmin() {
   while (true) {
     const r = await api("sysop/notify");
     cls();
-    await out("|14 Notify my phone\n" + rule(6) +
-      wrap("|07When new users sign up, files are uploaded or someone applies to the Cesspool, the board messages you on Telegram. The first one pings right away; anything else within the hour is bundled into one summary. Pages ping you right away, but only when you're not on the board.") + "\n\n");
-    if (r.on) {
+    await out("|14 Notify me\n" + rule(6) +
+      wrap("|07When new users sign up, files are uploaded or someone applies to the Cesspool, the board posts to Slack and/or Telegram. The first one goes right away; anything else within the hour is bundled into one summary. Pages go right away, but only when you're not on the board. Messages only say how many things are waiting (and who's paging), never passwords or files.") + "\n\n" +
+      "|07 Slack     " + (r.slackOn ? "|10ON" : "|08off") + "\n" +
+      "|07 Telegram  " + (r.tgOn ? "|10ON|07 via @" + esc(r.bot) : r.hasToken ? "|14half set up|07 (bot @" + esc(r.bot) + ")" : "|08off") + "\n\n" +
+      "|07   {S} Slack setup   {G} Telegram setup" + (r.slackOn || r.tgOn ? "   {T} Send a test" : "") + "   {Q} Back\n\n|08Command: |07");
+    const k = await readKey("SGQ" + (r.slackOn || r.tgOn ? "T" : ""));
+    if (k === "Q") return;
+    if (k === "T") { await api("sysop/notify", { op: "test" }); await out("|10Sent.\n"); await anyKey(); }
+    if (k === "S") await guard(() => slackSetup(r));
+    if (k === "G") await guard(telegramSetup);
+  }
+}
+async function slackSetup(r) {
+  cls();
+  await out("|14 Slack\n" + rule(6) +
+    "|07 1. Go to |15api.slack.com/apps|07 > |15Create New App|07 > |15From scratch|07. Name it\n" +
+    "|07    \"Septic Tankz\" and pick your workspace.\n" +
+    "|07 2. Under |15Incoming Webhooks|07, switch it on, then |15Add New Webhook|07. Pick a\n" +
+    "|07    channel (a private one like #septic-tankz is good) and allow it.\n" +
+    "|07 3. Copy the webhook URL (https://hooks.slack.com/services/...) and paste it\n" +
+    "|07    below. The board posts a hello to check it.\n" +
+    "|07 4. In Slack, set that channel's notifications to |15All new messages|07 so your\n" +
+    "|07    phone buzzes for it.\n\n" +
+    "|08 Status: " + (r.slackOn ? "|10ON|08. Paste a new URL to replace it, a single - to turn Slack off," : "off.") + "\n" +
+    "|08 or leave it blank to go back.\n\n|08Webhook URL: |07");
+  const v = (await readLine({ max: 120, mask: true })).trim();
+  if (!v) return;
+  if (v === "-") { await api("sysop/notify", { op: "slack", hook: "" }); return; }
+  await out("|08Posting a hello... |07");
+  await api("sysop/notify", { op: "slack", hook: v });
+  await out("|10Done. Check the channel.\n"); await anyKey();
+}
+async function telegramSetup() {
+  while (true) {
+    const r = await api("sysop/notify");
+    cls();
+    await out("|14 Telegram\n" + rule(6));
+    if (r.tgOn) {
       await out("|07 Status: |10ON|07, messaging " + esc(r.name || "you") + " through |15@" + esc(r.bot || "your bot") + "\n\n" +
-        "|08 The pings only say how many things are waiting (and who's paging), never\n|08 passwords or files. Mute or unmute the bot's chat in Telegram any time.\n\n" +
-        "|07   {T} Send a test   {X} Turn off   {Q} Back\n\n|08Command: |07");
-      const k = await readKey("TXQ");
+        "|07   {X} Turn Telegram off   {Q} Back\n\n|08Command: |07");
+      const k = await readKey("XQ");
       if (k === "Q") return;
-      if (k === "T") { await api("sysop/notify", { op: "test" }); await out("|10Sent. Check Telegram.\n"); await anyKey(); }
-      if (k === "X") await api("sysop/notify", { op: "off" });
+      await api("sysop/notify", { op: "off" });
       continue;
     }
     if (!r.hasToken) {
-      await out("|07 Status: |08OFF\n\n" +
-        "|07 1. In Telegram, open a chat with |15@BotFather|07 and send |15/newbot|07. Pick any name\n" +
+      await out("|07 1. In Telegram, open a chat with |15@BotFather|07 and send |15/newbot|07. Pick any name\n" +
         "|07    and a username ending in \"bot\". BotFather replies with a token like\n" +
         "|07    |15123456789:ABCdef...|07\n" +
         "|07 2. Press {K} here and paste that token.\n\n" +
@@ -1782,7 +1814,7 @@ async function notifyAdmin() {
       if (tok) { await out("|08Checking with Telegram... |07"); await api("sysop/notify", { op: "token", token: tok }); }
       continue;
     }
-    await out("|07 Status: |14almost there|07. Your bot is |15@" + esc(r.bot) + "|07.\n\n" +
+    await out("|07 Your bot is |15@" + esc(r.bot) + "|07.\n\n" +
       "|07 3. In Telegram, search for |15@" + esc(r.bot) + "|07, open it and tap |15Start|07.\n" +
       "|07 4. Press {F} here so the board can find you.\n\n" +
       "|07   {F} Find me   {K} Different bot token   {X} Start over   {Q} Back\n\n|08Command: |07");
