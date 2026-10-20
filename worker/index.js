@@ -142,7 +142,11 @@ async function ntfy(env, url, { title, message, priority = 3, tags = "toilet", c
     headers: { title, priority: String(priority), tags, ...(click ? { click } : {}), ...(tok ? { authorization: "Bearer " + tok } : {}) },
     signal: AbortSignal.timeout(5000),
   });
-  if (!r.ok) throw new Error("ntfy " + r.status + (r.status === 429 ? ": rate-limited. Add a free ntfy.sh access token" : r.status === 401 || r.status === 403 ? ": the access token was refused" : ""));
+  if (!r.ok) {
+    const why = (await r.text().catch(() => "")).slice(0, 160).replace(/[{}"]/g, "");
+    throw new Error("ntfy " + r.status + (r.status === 429 ? (tok ? ", rate-limited even with your token" : ", rate-limited. Add a free ntfy.sh access token with K")
+      : r.status === 401 || r.status === 403 ? ", the access token was refused" : "") + (why ? ". Server said: " + why : ""));
+  }
 }
 async function waitingCounts(env) {
   const r = await env.DB.batch([
