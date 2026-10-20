@@ -393,14 +393,27 @@ async function art(name) { await out(ART[name].join("\n") + "\n|07"); }
 // ---------------------------------------------------------------- audio (modem noises)
 const A = {
   ctx: null, master: null, on: true,
+  // Called from every key press and tap. Safari only lets audio start inside a real gesture,
+  // parks it as "interrupted" after calls or app switches, and mutes it with the iPhone's
+  // silent switch unless the page asks to be treated as media playback.
   ensure() {
     if (!this.ctx) {
+      try {
+        if (navigator.audioSession) navigator.audioSession.type = "playback";
+      } catch (e) {}
       try {
         this.ctx = new (window.AudioContext || window.webkitAudioContext)();
         this.master = this.ctx.createGain(); this.master.gain.value = 0.12; this.master.connect(this.ctx.destination);
       } catch (e) { this.ctx = null; }
     }
-    if (this.ctx && this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+    if (this.ctx && this.ctx.state !== "running") {
+      this.ctx.resume().catch(() => {});
+      // A silent one-sample buffer, started inside the gesture, is what finally unlocks older Safari.
+      try {
+        const b = this.ctx.createBuffer(1, 1, this.ctx.sampleRate), src = this.ctx.createBufferSource();
+        src.buffer = b; src.connect(this.ctx.destination); src.start(0);
+      } catch (e) {}
+    }
   },
   ready() { return this.on && this.ctx && this.ctx.state === "running"; },
   cut() { if (this.ctx && this.master) { this.master.disconnect(); this.master = this.ctx.createGain(); this.master.gain.value = 0.12; this.master.connect(this.ctx.destination); } },
@@ -442,6 +455,9 @@ const A = {
   },
 };
 try { if (localStorage.getItem("tankz-snd") === "off") A.on = false; } catch (e) {}
+// Any tap or click anywhere counts as a gesture that can wake the audio, not only typed keys.
+["pointerdown", "touchend"].forEach(ev => document.addEventListener(ev, () => A.ensure(), { passive: true }));
+document.addEventListener("visibilitychange", () => { if (!document.hidden && A.ctx && A.ctx.state !== "running") A.ctx.resume().catch(() => {}); });
 function paintSnd() { bSnd.innerHTML = 'SND <span class="on">' + (A.on ? "ON" : "OFF") + "</span>"; }
 paintSnd();
 bSnd.addEventListener("click", () => {
