@@ -23,7 +23,7 @@ past its door.
 - **Modems from 300 baud to 56k, or Ethernet.** Pick one with `[S]` on the dialing screen. Each has its own
   handshake song and `CONNECT` string, and screens and transfer meters run at that speed (tap to fast-forward).
   Ethernet skips the modem and connects like telnet. The choice is remembered per browser.
-- Bulletins and a door game, *Escape the Tank*
+- Bulletins and a whole wall of door games (see below)
 - **Teleconference**: a live group chat room for everyone online (the Cesspool has its own)
 - **Page the SysOp**: callers page you, your status bar flashes and beeps, and you answer into a live one-on-one chat
 - Text, NFO and ANSI files can be read on-line for free, and ANSI art renders in color
@@ -65,6 +65,39 @@ there waiting for pages while callers dial in. It shows up as `LCL` in Who's Onl
 
 The first account ever created becomes the SysOp. Call in and make yours
 right after the first deploy.
+
+## Door games
+
+`[D]` on the main menu. Each door is one file in `web/doors/`; the shared worlds also
+have a module in `worker/doors/` and their own tables.
+
+**Shared worlds.** One world everyone plays, a few turns a day, with attacks on players
+who are offline and a daily news page. They open once the SysOp validates you. All rules
+and dice run on the board's server.
+
+| Door | What it is |
+| --- | --- |
+| Usurper | The real Usurper, converted from Jakob Dangarden's GPL Pascal source (see below) |
+| Legend of the Red Drain | Original LORD-style RPG: Leach Field fights, 12 masters, the Red Drain Dragon |
+| Trade Wipes 2002 | Original TradeWars-style space trading: 300 sectors, haggling, fighters, planets |
+| Barren Drains Elite | Original BRE-style empire game: build, recruit, attack, spy, sign pacts |
+
+**Classic adventures, the real games.**
+- **Zork I, II and III** run Infocom's original story files on the board's own Z-machine
+  interpreter (`web/doors/zmachine.js`). The source and story files were released by
+  Microsoft under the MIT License in 2025 (github.com/historicalsource). Zork is a
+  trademark of its owner; it's named here to identify the games.
+- **Colossal Cave Adventure** is Eric S. Raymond's Open Adventure (BSD-2-Clause), the
+  faithful C version of Will Crowther and Don Woods's game, compiled to WebAssembly.
+  `scripts/build_advent.sh` rebuilds it.
+- SAVE and RESTORE (RESUME in Colossal Cave) keep one saved game per caller on the board.
+
+**BASIC classics**, new code following the 1970s rules: Hunt the Wumpus (after Gregory
+Yob), Deep Space Patrol (after Mike Mayfield's 1971 Star Trek), Hammurabi (after Doug
+Dyment and David Ahl) and Lunar Lander (Jim Storer's 1969 physics). High scores are kept
+per caller (`[H]` on the door menu).
+
+License texts for the bundled games are in `public/doors/`.
 
 ## How it's built
 
