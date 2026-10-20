@@ -134,12 +134,15 @@ async function notifyTarget(env) {
   return (await config(env, "ntfy_server") || "https://ntfy.sh").replace(/\/$/, "") + "/" + topic;
 }
 async function ntfy(env, url, { title, message, priority = 3, tags = "toilet", click }) {
+  // Cloudflare Workers share outgoing IP addresses, and ntfy.sh rate-limits anonymous senders by IP,
+  // so a free ntfy.sh account token (limits counted per account instead) is what makes this reliable.
+  const tok = await config(env, "ntfy_token");
   const r = await fetch(url, {
     method: "POST", body: message,
-    headers: { title, priority: String(priority), tags, ...(click ? { click } : {}) },
+    headers: { title, priority: String(priority), tags, ...(click ? { click } : {}), ...(tok ? { authorization: "Bearer " + tok } : {}) },
     signal: AbortSignal.timeout(5000),
   });
-  if (!r.ok) throw new Error("ntfy " + r.status);
+  if (!r.ok) throw new Error("ntfy " + r.status + (r.status === 429 ? ": rate-limited. Add a free ntfy.sh access token" : r.status === 401 || r.status === 403 ? ": the access token was refused" : ""));
 }
 async function waitingCounts(env) {
   const r = await env.DB.batch([
@@ -663,6 +666,12 @@ async function route(path, req, env) {
         await setConfig(env, "board_url", new URL(req.url).origin);
       }
       if (body.op === "off") await db.prepare("DELETE FROM config WHERE k = 'ntfy_topic'").run();
+      if (body.op === "token") {
+        const tok = String(body.token || "").trim();
+        if (tok && !/^tk_[A-Za-z0-9]{20,64}$/.test(tok)) throw new BoardError("That doesn't look like an ntfy token (they start with tk_).");
+        if (tok) await setConfig(env, "ntfy_token", tok);
+        else await db.prepare("DELETE FROM config WHERE k = 'ntfy_token'").run();
+      }
       const url = await notifyTarget(env);
       if (body.op === "test") {
         if (!url) throw new BoardError("Turn notifications on first.");
@@ -670,7 +679,7 @@ async function route(path, req, env) {
           await ntfy(env, url, { title: "The Septic Tankz", message: "Test page from the SysOp console. If you can read this, you're wired up.", click: await notifyClick(env) });
         } catch (e) { throw new BoardError("Couldn't reach the notification server (" + (e.message || e) + ")."); }
       }
-      return json({ on: !!url, url, topic: await config(env, "ntfy_topic"), waiting: await waitingCounts(env) });
+      return json({ on: !!url, url, topic: await config(env, "ntfy_topic"), token: !!(await config(env, "ntfy_token")), waiting: await waitingCounts(env) });
     }
     case "sysop/lines": {
       requireSysop(user);

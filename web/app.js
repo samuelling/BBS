@@ -1615,8 +1615,15 @@ async function notifyAdmin() {
         "|08 Keep the topic to yourself: anyone who knows it can read the pings. Turning\n" +
         "|08 it off and on again makes a new one. The pings only say how many things are\n" +
         "|08 waiting (and who's paging), never passwords or files.\n\n" +
-        "|07   {T} Send a test   {X} Turn off   {N} New topic   {Q} Back\n\n|08Command: |07");
-      const k = await readKey("TXNQ");
+        "|07 Access token: " + (r.token ? "|10set" : "|12none|08 (ntfy.sh rate-limits the board's shared server address; a free\n" +
+        "|08 ntfy.sh account fixes that: Account > Access tokens > Create, then paste it here)") + "\n\n" +
+        "|07   {T} Send a test   {K} Access token   {X} Turn off   {N} New topic   {Q} Back\n\n|08Command: |07");
+      const k = await readKey("TKXNQ");
+      if (k === "K") {
+        await out("\n|07Paste the token (tk_...), or leave it blank to remove it.\n|08Token: |07");
+        await api("sysop/notify", { op: "token", token: (await readLine({ max: 70, mask: true })).trim() });
+        continue;
+      }
       if (k === "Q") return;
       if (k === "T") { await api("sysop/notify", { op: "test" }); await out("|10Sent. It should land in a few seconds.\n"); await anyKey(); }
       if (k === "X") await api("sysop/notify", { op: "off" });
