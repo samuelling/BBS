@@ -3,7 +3,7 @@
 
 // ---------------------------------------------------------------- config
 const API = (((document.querySelector('meta[name="bbs-api"]') || {}).content) || "").replace(/^\/\*.*\*\/$/, "").replace(/\/$/, "");
-const PHONE = "1-617-555-8265";
+const PHONE = "1-716-555-2455";
 // Modems the caller can dial with. cps = characters per second over the line (bps / 10).
 const MODEMS = [
   { id: "300",   label: "300 baud",       year: 1980, cps: 30,   hs: "bell103", connect: "CONNECT 300" },

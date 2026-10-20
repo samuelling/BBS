@@ -33,7 +33,7 @@ FILES = [
     (13, "elite/COOKBOOK.TXT", "The Underground Cookbook, vol. 1"),
     (13, "elite/PH34R.TXT", "The PH34R Manifesto, by a 15 yr old"),
     (13, "elite/L33TGUID.TXT", "How 2 B 3L33T: a guide for newbies"),
-    (13, "elite/LAMERS.TXT", "Lamest boards in the 617, ranked"),
+    (13, "elite/LAMERS.TXT", "Lamest boards in the 716, ranked"),
     (14, "elite/CESSPOOL.NFO", "Board NFO for The Cesspool"),
 ]
 
