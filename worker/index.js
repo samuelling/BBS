@@ -119,34 +119,42 @@ export default {
   },
 };
 
-// ---------------------------------------------------------------- SysOp phone notifications (ntfy)
-// The SysOp subscribes to a private ntfy topic (set up from the SysOp console). New users,
-// uploads and Cesspool applications are bundled: the first one pings right away, anything
-// else within the hour is rolled into one summary that the cron sends when the hour is up.
-// Pages ping right away, but only when the SysOp isn't already on the board.
+// ---------------------------------------------------------------- SysOp phone notifications (Telegram)
+// The SysOp makes a Telegram bot with @BotFather, pastes its token into the SysOp console and
+// says hi to it; the board then messages that chat. New users, uploads and Cesspool applications
+// are bundled: the first one pings right away, anything else within the hour is rolled into one
+// summary that the cron sends when the hour is up. Pages ping right away, but only when the SysOp
+// isn't already on the board.
 const NOTIFY_GAP = 60 * 60_000;
 async function setConfig(env, k, v) {
   await env.DB.prepare("INSERT OR REPLACE INTO config (k, v) VALUES (?, ?)").bind(k, String(v)).run();
 }
-async function notifyTarget(env) {
-  const topic = await config(env, "ntfy_topic");
-  if (!topic) return null;
-  return (await config(env, "ntfy_server") || "https://ntfy.sh").replace(/\/$/, "") + "/" + topic;
+async function delConfig(env, ...keys) {
+  for (const k of keys) await env.DB.prepare("DELETE FROM config WHERE k = ?").bind(k).run();
 }
-async function ntfy(env, url, { title, message, priority = 3, tags = "toilet", click }) {
-  // Cloudflare Workers share outgoing IP addresses, and ntfy.sh rate-limits anonymous senders by IP,
-  // so a free ntfy.sh account token (limits counted per account instead) is what makes this reliable.
-  const tok = await config(env, "ntfy_token");
-  const r = await fetch(url, {
-    method: "POST", body: message,
-    headers: { title, priority: String(priority), tags, ...(click ? { click } : {}), ...(tok ? { authorization: "Bearer " + tok } : {}) },
-    signal: AbortSignal.timeout(5000),
+async function tg(env, method, payload, token) {
+  token = token || await config(env, "tg_token");
+  if (!token) throw new Error("no bot token");
+  const base = (await config(env, "tg_api")) || "https://api.telegram.org";   // tg_api is only for local testing
+  const r = await fetch(base + "/bot" + token + "/" + method, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload || {}),
+    signal: AbortSignal.timeout(6000),
   });
-  if (!r.ok) {
-    const why = (await r.text().catch(() => "")).slice(0, 160).replace(/[{}"]/g, "");
-    throw new Error("ntfy " + r.status + (r.status === 429 ? (tok ? ", rate-limited even with your token" : ", rate-limited. Add a free ntfy.sh access token with K")
-      : r.status === 401 || r.status === 403 ? ", the access token was refused" : "") + (why ? ". Server said: " + why : ""));
-  }
+  const d = await r.json().catch(() => ({}));
+  if (!d.ok) throw new Error("Telegram " + r.status + (d.description ? ": " + String(d.description).slice(0, 120) : ""));
+  return d.result;
+}
+const htmlEsc = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// Returns true if sent, false if notifications aren't set up.
+async function notifySend(env, title, message) {
+  const chat = await config(env, "tg_chat");
+  if (!chat || !(await config(env, "tg_token"))) return false;
+  const link = await config(env, "board_url");
+  await tg(env, "sendMessage", {
+    chat_id: chat, parse_mode: "HTML", disable_web_page_preview: true,
+    text: "<b>" + htmlEsc(title) + "</b>\n" + htmlEsc(message) + (link ? '\n<a href="' + htmlEsc(link) + '">Open the board</a>' : ""),
+  });
+  return true;
 }
 async function waitingCounts(env) {
   const r = await env.DB.batch([
@@ -163,28 +171,23 @@ function waitingText(w) {
   if (w.apps) bits.push(w.apps + " Cesspool application" + (w.apps > 1 ? "s" : ""));
   return bits.length ? bits.join(", ") + " waiting for you." : "";
 }
-async function notifySummary(env, url) {
+async function notifySummary(env) {
   const text = waitingText(await waitingCounts(env));
-  await setConfig(env, "ntfy_pending", "0");
-  if (!text) return false;   // the SysOp already dealt with it
-  await ntfy(env, url, { title: "The Septic Tankz", message: text, click: await notifyClick(env) });
-  await setConfig(env, "ntfy_last", now());
-  return true;
+  await setConfig(env, "notify_pending", "0");
+  if (!text) return;   // the SysOp already dealt with it
+  if (await notifySend(env, "The Septic Tankz", text)) await setConfig(env, "notify_last", now());
 }
-async function notifyClick(env) { return (await config(env, "board_url")) || undefined; }
 // Something new landed in a SysOp queue.
 async function notifyQueue(env) {
-  const url = await notifyTarget(env);
-  if (!url) return;
-  const last = +(await config(env, "ntfy_last") || 0);
-  if (now() - last < NOTIFY_GAP) return setConfig(env, "ntfy_pending", "1");
-  await notifySummary(env, url);
+  if (!(await config(env, "tg_chat"))) return;
+  const last = +(await config(env, "notify_last") || 0);
+  if (now() - last < NOTIFY_GAP) return setConfig(env, "notify_pending", "1");
+  await notifySummary(env);
 }
 async function notifyFlush(env) {
-  const url = await notifyTarget(env);
-  if (!url || (await config(env, "ntfy_pending")) !== "1") return;
-  if (now() - +(await config(env, "ntfy_last") || 0) < NOTIFY_GAP) return;
-  await notifySummary(env, url);
+  if ((await config(env, "notify_pending")) !== "1") return;
+  if (now() - +(await config(env, "notify_last") || 0) < NOTIFY_GAP) return;
+  await notifySummary(env);
 }
 
 // ---------------------------------------------------------------- helpers
@@ -525,10 +528,8 @@ async function route(path, req, env) {
       if (recent.n >= 3) throw new BoardError("You've paged three times already. Leave the SysOp a comment instead.");
       const r = await db.prepare("INSERT INTO pages (user_id, handle, node, reason, at) VALUES (?, ?, ?, ?, ?) RETURNING id").bind(user.id, user.handle, line.node, reason, t).first();
       const sysop = await db.prepare("SELECT l.node FROM line l JOIN users u ON u.id = l.user_id WHERE u.level >= 255 AND l.token IS NOT NULL AND l.beat > ?").bind(t - BEAT_MS).first();
-      if (!sysop && recent.n === 0) env.later(notifyTarget(env).then(url => url && ntfy(env, url, {
-        title: user.handle + " is paging you", priority: 4, tags: "telephone_receiver", click: undefined,
-        message: (reason ? "\"" + reason + "\" " : "") + "On node " + line.node + " right now. Pages expire after 5 minutes.",
-      })));
+      if (!sysop && recent.n === 0) env.later(notifySend(env, user.handle + " is paging you",
+        (reason ? "\u201c" + reason + "\u201d " : "") + "On node " + line.node + " right now. Pages expire after 5 minutes."));
       return json({ id: r.id, sysopOnline: !!sysop });
     }
     case "chat/pagestatus": {
@@ -665,25 +666,35 @@ async function route(path, req, env) {
     }
     case "sysop/notify": {
       requireSysop(user);
-      if (body.op === "on") {
-        await setConfig(env, "ntfy_topic", "tankz-" + randomHex(8));
-        await setConfig(env, "board_url", new URL(req.url).origin);
-      }
-      if (body.op === "off") await db.prepare("DELETE FROM config WHERE k = 'ntfy_topic'").run();
       if (body.op === "token") {
         const tok = String(body.token || "").trim();
-        if (tok && !/^tk_[A-Za-z0-9]{20,64}$/.test(tok)) throw new BoardError("That doesn't look like an ntfy token (they start with tk_).");
-        if (tok) await setConfig(env, "ntfy_token", tok);
-        else await db.prepare("DELETE FROM config WHERE k = 'ntfy_token'").run();
+        if (!/^\d{5,15}:[A-Za-z0-9_-]{30,50}$/.test(tok)) throw new BoardError("That doesn't look like a bot token. BotFather's look like 123456789:ABCdef...");
+        let me;
+        try { me = await tg(env, "getMe", {}, tok); } catch (e) { throw new BoardError("Telegram didn't accept that token (" + e.message + ")."); }
+        await setConfig(env, "tg_token", tok);
+        await setConfig(env, "tg_bot", me.username || "");
+        await delConfig(env, "tg_chat", "tg_name");
+        await setConfig(env, "board_url", new URL(req.url).origin);
       }
-      const url = await notifyTarget(env);
+      if (body.op === "find") {
+        let ups;
+        try { ups = await tg(env, "getUpdates", { limit: 50, allowed_updates: ["message"] }); } catch (e) { throw new BoardError(e.message); }
+        const msg = ups.map(u => u.message).filter(m => m && m.chat && m.chat.type === "private").pop();
+        if (!msg) throw new BoardError("No message yet. Open your bot in Telegram, tap Start (or send it anything), then try again.");
+        await setConfig(env, "tg_chat", String(msg.chat.id));
+        await setConfig(env, "tg_name", msg.chat.first_name || msg.chat.username || "");
+        try { await notifySend(env, "The Septic Tankz", "Connected. The board will ping you here when things need your attention."); }
+        catch (e) { throw new BoardError("Found you, but couldn't send: " + e.message); }
+      }
       if (body.op === "test") {
-        if (!url) throw new BoardError("Turn notifications on first.");
-        try {
-          await ntfy(env, url, { title: "The Septic Tankz", message: "Test page from the SysOp console. If you can read this, you're wired up.", click: await notifyClick(env) });
-        } catch (e) { throw new BoardError("Couldn't reach the notification server (" + (e.message || e) + ")."); }
+        let sent;
+        try { sent = await notifySend(env, "The Septic Tankz", "Test ping from the SysOp console. If you can read this, you're wired up."); }
+        catch (e) { throw new BoardError("Couldn't send (" + e.message + ")."); }
+        if (!sent) throw new BoardError("Finish setting it up first.");
       }
-      return json({ on: !!url, url, topic: await config(env, "ntfy_topic"), token: !!(await config(env, "ntfy_token")), waiting: await waitingCounts(env) });
+      if (body.op === "off") await delConfig(env, "tg_token", "tg_bot", "tg_chat", "tg_name");
+      const [bot, chat, name, tok] = await Promise.all(["tg_bot", "tg_chat", "tg_name", "tg_token"].map(k => config(env, k)));
+      return json({ bot: bot || null, hasToken: !!tok, on: !!chat, name: name || null, waiting: await waitingCounts(env) });
     }
     case "sysop/lines": {
       requireSysop(user);

@@ -1751,39 +1751,49 @@ async function sysopConsole() {
     if (k === "O") await guard(notifyAdmin);
   }
 }
-// Phone notifications through ntfy (free app, no account): the board posts to a private topic.
+// Phone notifications through a Telegram bot the SysOp makes (free; the board messages it).
 async function notifyAdmin() {
   while (true) {
     const r = await api("sysop/notify");
     cls();
     await out("|14 Notify my phone\n" + rule(6) +
-      wrap("|07When new users sign up, files are uploaded or someone applies to the Cesspool, the board can ping your phone. The first one pings right away; anything else within the hour is bundled into one summary. Pages ping you right away, but only when you're not on the board.") + "\n\n");
+      wrap("|07When new users sign up, files are uploaded or someone applies to the Cesspool, the board messages you on Telegram. The first one pings right away; anything else within the hour is bundled into one summary. Pages ping you right away, but only when you're not on the board.") + "\n\n");
     if (r.on) {
-      await out("|07 Status: |10ON\n\n" +
-        "|07 On your phone: install |15ntfy|07 (free, App Store or Google Play), tap |15+|07, and\n" +
-        "|07 subscribe to this topic on the default server (ntfy.sh):\n\n" +
-        "|14    " + esc(r.topic) + "\n\n" +
-        "|08 Keep the topic to yourself: anyone who knows it can read the pings. Turning\n" +
-        "|08 it off and on again makes a new one. The pings only say how many things are\n" +
-        "|08 waiting (and who's paging), never passwords or files.\n\n" +
-        "|07 Access token: " + (r.token ? "|10set" : "|12none|08 (ntfy.sh rate-limits the board's shared server address; a free\n" +
-        "|08 ntfy.sh account fixes that: Account > Access tokens > Create, then paste it here)") + "\n\n" +
-        "|07   {T} Send a test   {K} Access token   {X} Turn off   {N} New topic   {Q} Back\n\n|08Command: |07");
-      const k = await readKey("TKXNQ");
-      if (k === "K") {
-        await out("\n|07Paste the token (tk_...), or leave it blank to remove it.\n|08Token: |07");
-        await api("sysop/notify", { op: "token", token: (await readLine({ max: 70, mask: true })).trim() });
-        continue;
-      }
+      await out("|07 Status: |10ON|07, messaging " + esc(r.name || "you") + " through |15@" + esc(r.bot || "your bot") + "\n\n" +
+        "|08 The pings only say how many things are waiting (and who's paging), never\n|08 passwords or files. Mute or unmute the bot's chat in Telegram any time.\n\n" +
+        "|07   {T} Send a test   {X} Turn off   {Q} Back\n\n|08Command: |07");
+      const k = await readKey("TXQ");
       if (k === "Q") return;
-      if (k === "T") { await api("sysop/notify", { op: "test" }); await out("|10Sent. It should land in a few seconds.\n"); await anyKey(); }
+      if (k === "T") { await api("sysop/notify", { op: "test" }); await out("|10Sent. Check Telegram.\n"); await anyKey(); }
       if (k === "X") await api("sysop/notify", { op: "off" });
-      if (k === "N") await api("sysop/notify", { op: "on" });
-    } else {
-      await out("|07 Status: |08OFF\n\n|07   {T} Turn on   {Q} Back\n\n|08Command: |07");
-      const k = await readKey("TQ");
+      continue;
+    }
+    if (!r.hasToken) {
+      await out("|07 Status: |08OFF\n\n" +
+        "|07 1. In Telegram, open a chat with |15@BotFather|07 and send |15/newbot|07. Pick any name\n" +
+        "|07    and a username ending in \"bot\". BotFather replies with a token like\n" +
+        "|07    |15123456789:ABCdef...|07\n" +
+        "|07 2. Press {K} here and paste that token.\n\n" +
+        "|07   {K} Paste bot token   {Q} Back\n\n|08Command: |07");
+      const k = await readKey("KQ");
       if (k === "Q") return;
-      await api("sysop/notify", { op: "on" });
+      await out("\n|08Bot token: |07");
+      const tok = (await readLine({ max: 80, mask: true })).trim();
+      if (tok) { await out("|08Checking with Telegram... |07"); await api("sysop/notify", { op: "token", token: tok }); }
+      continue;
+    }
+    await out("|07 Status: |14almost there|07. Your bot is |15@" + esc(r.bot) + "|07.\n\n" +
+      "|07 3. In Telegram, search for |15@" + esc(r.bot) + "|07, open it and tap |15Start|07.\n" +
+      "|07 4. Press {F} here so the board can find you.\n\n" +
+      "|07   {F} Find me   {K} Different bot token   {X} Start over   {Q} Back\n\n|08Command: |07");
+    const k = await readKey("FKXQ");
+    if (k === "Q") return;
+    if (k === "F") { await out("|08Looking... |07"); await api("sysop/notify", { op: "find" }); await out("|10Found you. Check Telegram for a hello.\n"); await anyKey(); }
+    if (k === "X") await api("sysop/notify", { op: "off" });
+    if (k === "K") {
+      await out("\n|08Bot token: |07");
+      const tok = (await readLine({ max: 80, mask: true })).trim();
+      if (tok) await api("sysop/notify", { op: "token", token: tok });
     }
   }
 }

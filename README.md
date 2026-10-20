@@ -50,10 +50,10 @@ past its door.
 - Change the secret entry handle and password
 - Kick a caller off a line
 - Phone lines: run a 1- to 8-line board. Callers who find line 1 busy roll over to the next free line
-- Notify my phone: pings from the free ntfy app when new users, uploads or Cesspool applications are
+- Notify my phone: messages you on Telegram when new users, uploads or Cesspool applications are
   waiting (the first right away, the rest bundled at most hourly by a 15-minute cron), and when a
-  caller pages while you're off the board. Turn it on in the console and subscribe to the topic it shows.
-  Add a free ntfy.sh access token with {K}: ntfy.sh rate-limits anonymous senders by IP, and Workers share IPs.
+  caller pages while you're off the board. Make a bot with @BotFather, paste its token in the console,
+  tap Start on your bot, then press Find me.
 
 **Stats dashboard.** `/sysop` on the board's address (for example
 `https://bbs.samuelling.workers.dev/sysop/`) is a modern dashboard for the SysOp:
