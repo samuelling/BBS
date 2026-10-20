@@ -1,0 +1,47 @@
+-- Legend of the Red Drain (door game): players, the daily news, and "while you were away" notices.
+CREATE TABLE rd_players (
+  user_id INTEGER PRIMARY KEY,
+  handle TEXT NOT NULL DEFAULT '',
+  cls TEXT NOT NULL DEFAULT 'P',
+  level INTEGER NOT NULL DEFAULT 1,
+  xp INTEGER NOT NULL DEFAULT 0,
+  hp INTEGER NOT NULL DEFAULT 20,
+  maxhp INTEGER NOT NULL DEFAULT 20,
+  str INTEGER NOT NULL DEFAULT 10,
+  def INTEGER NOT NULL DEFAULT 1,
+  gold INTEGER NOT NULL DEFAULT 0,
+  bank INTEGER NOT NULL DEFAULT 0,
+  weapon INTEGER NOT NULL DEFAULT 0,
+  armor INTEGER NOT NULL DEFAULT 0,
+  fights INTEGER NOT NULL DEFAULT 0,
+  pfights INTEGER NOT NULL DEFAULT 0,
+  skills INTEGER NOT NULL DEFAULT 0,
+  alive INTEGER NOT NULL DEFAULT 1,
+  inn INTEGER NOT NULL DEFAULT 0,
+  wins INTEGER NOT NULL DEFAULT 0,
+  kills INTEGER NOT NULL DEFAULT 0,
+  day TEXT,
+  days INTEGER NOT NULL DEFAULT 1,
+  master_day TEXT,
+  dragon_ok INTEGER NOT NULL DEFAULT 0,
+  fight TEXT,
+  last_at INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL DEFAULT 0,
+  rev INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX rd_players_rank ON rd_players(wins DESC, level DESC, xp DESC);
+CREATE TABLE rd_news (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  at INTEGER NOT NULL,
+  day TEXT NOT NULL,
+  text TEXT NOT NULL
+);
+CREATE INDEX rd_news_at ON rd_news(at);
+CREATE TABLE rd_notices (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  at INTEGER NOT NULL,
+  text TEXT NOT NULL,
+  seen INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX rd_notices_user ON rd_notices(user_id, seen);
