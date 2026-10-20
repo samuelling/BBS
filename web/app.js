@@ -4,7 +4,22 @@
 // ---------------------------------------------------------------- config
 const API = (((document.querySelector('meta[name="bbs-api"]') || {}).content) || "").replace(/^\/\*.*\*\/$/, "").replace(/\/$/, "");
 const PHONE = "1-617-555-8265";
-const CPS = 1440;                 // 14.4k ≈ 1440 chars/sec
+// Modems the caller can dial with. cps = characters per second over the line (bps / 10).
+const MODEMS = [
+  { id: "300",   label: "300 baud",       year: 1980, cps: 30,   hs: "bell103", connect: "CONNECT 300" },
+  { id: "1200",  label: "1200 baud",      year: 1984, cps: 120,  hs: "v22",     connect: "CONNECT 1200" },
+  { id: "2400",  label: "2400 baud",      year: 1986, cps: 240,  hs: "v22",     connect: "CONNECT 2400/ARQ" },
+  { id: "9600",  label: "9600 baud",      year: 1990, cps: 960,  hs: "v32",     connect: "CONNECT 9600/ARQ/V32/LAPM" },
+  { id: "14400", label: "14.4k",          year: 1992, cps: 1440, hs: "v32bis",  connect: "CONNECT 14400/ARQ/V32BIS/LAPM/V42BIS" },
+  { id: "28800", label: "28.8k",          year: 1994, cps: 2880, hs: "v34",     connect: "CONNECT 28800/ARQ/V34/LAPM/V42BIS" },
+  { id: "33600", label: "33.6k",          year: 1996, cps: 3360, hs: "v34",     connect: "CONNECT 33600/ARQ/V34/LAPM/V42BIS" },
+  { id: "56000", label: "56k",            year: 1998, cps: 5300, hs: "v90",     connect: "CONNECT 53333/ARQ/V90/LAPM/V42BIS" },
+  { id: "eth",   label: "Ethernet (telnet)", year: 1999, cps: 100000, telnet: true },
+];
+let MODEM = MODEMS[4];
+try { const m = MODEMS.find(x => x.id === localStorage.getItem("tankz-modem")); if (m) MODEM = m; } catch (e) {}
+const LOCAL_CPS = 6000;            // the terminal program itself, before you're connected
+let CPS = LOCAL_CPS;
 const IDLE_LIMIT_MIN = 5;
 const ART = /*__ART__*/null;
 
@@ -311,15 +326,35 @@ const A = {
   },
   ring() { return this.play(() => this.tone([440, 480], 0, 1.1, 0.3), 2.1); },
   busy() { return this.play(() => { for (let i = 0; i < 4; i++) this.tone([480, 620], i, 0.5, 0.3); }, 4); },
-  handshake() {
-    return this.play(() => {
-      this.tone([2100], 0, 1.0, 0.35);
-      this.tone([1375, 2002], 1.1, 0.35, 0.3);
-      this.tone([980], 1.5, 0.12, 0.3); this.tone([1650], 1.65, 0.12, 0.3); this.tone([980], 1.8, 0.12, 0.3);
-      this.tone([2250, 1200], 2.0, 0.45, 0.28);
-      this.noise(2.5, 1.4, 1800, 0.7, 0.9);
-      this.noise(2.6, 1.2, 600, 1.5, 0.5);
-    }, 4.0);
+  // Each modem standard has its own song. Durations roughly match the real thing.
+  handshake(kind) {
+    const T = (f, at, d, v) => this.tone(f, at, d, v), N = (at, d, f, q, v) => this.noise(at, d, f, q, v);
+    const songs = {
+      bell103: [1.8, () => { T([2225], 0, 1.0, 0.35); T([1270], 1.0, 0.8, 0.3); T([2225], 1.0, 0.8, 0.2); }],
+      v22: [2.6, () => { T([2100], 0, 0.9, 0.35); T([2250], 1.0, 0.4, 0.3); N(1.4, 1.2, 1500, 0.9, 0.8); }],
+      v32: [3.3, () => { T([2100], 0, 1.0, 0.35); T([1800], 1.1, 0.3, 0.3); T([600, 3000], 1.45, 0.3, 0.25); N(1.8, 1.5, 1800, 0.7, 0.9); }],
+      v32bis: [4.0, () => {
+        T([2100], 0, 1.0, 0.35); T([1375, 2002], 1.1, 0.35, 0.3);
+        T([980], 1.5, 0.12, 0.3); T([1650], 1.65, 0.12, 0.3); T([980], 1.8, 0.12, 0.3);
+        T([2250, 1200], 2.0, 0.45, 0.28); N(2.5, 1.4, 1800, 0.7, 0.9); N(2.6, 1.2, 600, 1.5, 0.5);
+      }],
+      v34: [5.0, () => {
+        for (let i = 0; i < 3; i++) T([2100], i * 0.45, 0.4, 0.35);
+        T([1200], 1.4, 0.15, 0.3); T([2400], 1.55, 0.15, 0.3); T([1200], 1.7, 0.15, 0.3); T([2400], 1.85, 0.15, 0.3);
+        T([450, 1050, 1650, 2250, 2850, 3450], 2.1, 0.5, 0.18);
+        N(2.7, 2.3, 1800, 0.6, 0.9); N(2.8, 2.0, 700, 1.4, 0.5);
+      }],
+      v90: [6.4, () => {
+        for (let i = 0; i < 3; i++) T([2100], i * 0.45, 0.4, 0.35);
+        T([1200], 1.4, 0.15, 0.3); T([2400], 1.55, 0.15, 0.3);
+        T([450, 1050, 1650, 2250, 2850, 3450], 1.8, 0.5, 0.18);
+        N(2.4, 1.6, 1800, 0.6, 0.9);
+        T([1000], 4.0, 0.25, 0.35); T([700], 4.3, 0.25, 0.35);
+        N(4.6, 1.7, 2600, 0.5, 0.9); N(4.7, 1.5, 400, 1.2, 0.6);
+      }],
+    };
+    const [dur, fn] = songs[kind] || songs.v32bis;
+    return this.play(fn, dur);
   },
 };
 try { if (localStorage.getItem("tankz-snd") === "off") A.on = false; } catch (e) {}
@@ -412,8 +447,14 @@ function setMode(m) {
   bHang.hidden = m === "offline";
   if (m === "online") { onlineAt = Date.now(); lastInput = Date.now(); }
   stNode.textContent = m === "online" ? (myNode === 0 ? "LOCAL" : "NODE " + myNode) : "NODE --";
-  if (m !== "online") { stUser.textContent = "ANSI-BBS"; showPages(0); }
+  if (m !== "online") { stUser.textContent = "ANSI-BBS"; showPages(0); CPS = LOCAL_CPS; }
+  paintSpeed();
 }
+function paintSpeed() {
+  const sp = $("st-speed");
+  if (sp) sp.textContent = myNode === 0 && state === "online" ? "LOCAL CON" : MODEM.telnet ? "TELNET" : MODEM.id + " N81";
+}
+paintSpeed();
 function releaseLine() {
   if (!token) return;
   const tk = token; token = null;
@@ -452,17 +493,18 @@ async function dialer() {
       "|09+----+---------------------------+------------------+--------+-------------+\n" +
       "|09||11 ## |09||11 " + pad("Name", 26) + "|09||11 " + pad("Number", 17) + "|09||11 " + pad("Baud", 7) + "|09||11 " + pad("Protocol", 12) + "|09|\n" +
       "|09+----+---------------------------+------------------+--------+-------------+\n" +
-      "|09||15  1 |09||14 " + pad("The Septic Tankz", 26) + "|09||07 " + pad(PHONE, 17) + "|09||07 14400  |09||07 Zmodem      |09|\n" +
+      "|09||15  1 |09||14 " + pad("The Septic Tankz", 26) + "|09||07 " + pad(PHONE, 17) + "|09||07 " + pad(MODEM.telnet ? "telnet" : MODEM.id, 7) + "|09||07 Zmodem      |09|\n" +
       "|09||08  2 |09||08 " + pad("The Grease Trap", 26) + "|09||08 " + pad("[unlisted]", 17) + "|09||08 2400   |09||08 Xmodem      |09|\n" +
       "|09||08  3 |09||08 " + pad("Mom's House (voice!)", 26) + "|09||08 " + pad("do not dial", 17) + "|09||08 --     |09||08 --          |09|\n" +
       "|09+----+---------------------------+------------------+--------+-------------+\n\n" +
       "|07 The Septic Tankz is a real board with real phone lines. When they're all\n" +
       " in use you get a |12busy signal|07. Try again, or let auto-redial keep trying.\n\n" +
       "   {D} Dial The Septic Tankz    {A} Auto-redial until it connects    {?} About\n" +
-      "   {L} |08Local console (SysOp only, doesn't use a phone line)|07\n\n" +
+      "   {S} Modem: |15" + MODEM.label + "|07 (change)      {L} |08Local console (SysOp only)|07\n\n" +
       "|08 Command: |07"
     );
-    const k = await readKey("DA?L");
+    const k = await readKey("DA?LS");
+    if (k === "S") { await pickModem(); continue; }
     if (k === "?") { await about(); continue; }
     if (k === "L") { if (await localConsole()) return lobby(); continue; }
     if (k === "D") { if (await dial()) return board(); await anyKey("\n|08[|07press any key to return to the directory|08]"); continue; }
@@ -482,6 +524,23 @@ async function dialer() {
   }
 }
 
+async function pickModem() {
+  cls();
+  await out("|15 Modem setup\n" + rule(8) + "|08 #  Modem                Era    Speed        3 MB download\n");
+  for (let i = 0; i < MODEMS.length; i++) {
+    const m = MODEMS[i];
+    const secs = 3 * 1048576 / m.cps;
+    const t = m.telnet ? "a blink" : secs >= 3600 ? (secs / 3600).toFixed(1) + " hours" : Math.round(secs / 60) + " min";
+    await out((m === MODEM ? "|14" : "|07") + " {" + (i + 1) + "} " + pad(m.label, 20) + "|08" + lpad(m.year, 4) + "   " +
+      pad(m.telnet ? "10 Mbit+" : m.cps.toLocaleString("en-US") + " cps", 12) + " |07" + t + (m === MODEM ? " |14<- current" : "") + "\n");
+  }
+  await out("\n|08 Slower modems print the screens and send files at their real speed. Tap the\n screen or press a key while text is scrolling to fast-forward.\n\n|07Pick a modem: |15");
+  const k = await readKey("123456789", { enter: String(MODEMS.indexOf(MODEM) + 1) });
+  MODEM = MODEMS[+k - 1];
+  try { localStorage.setItem("tankz-modem", MODEM.id); } catch (e) {}
+  paintSpeed();
+}
+
 // The SysOp sitting at the board's own keyboard: no modem, no phone line, no time limit.
 async function localConsole() {
   cls();
@@ -496,7 +555,7 @@ async function localConsole() {
     d = await r.json();
   } catch (e) { if (e instanceof Hangup) throw e; d = { error: "The board isn't answering." }; }
   if (!d.token) { await out("|12" + esc(d.error || "No.") + "\n"); await anyKey(); return false; }
-  token = d.token; myNode = 0;
+  token = d.token; myNode = 0; CPS = 100000;
   try { INFO = await api("info"); LINES = INFO.lines; } catch (e) { if (e instanceof Hangup) throw e; }
   S = { user: d.user, eliteOk: true, unread: d.unread, lastCall: d.lastCall };
   setMode("online");
@@ -523,14 +582,27 @@ async function about() {
 async function dial() {
   setMode("dialing");
   outNow("\n");
+  let result = null, failed = null, settled = false;
+  const call = () => rawFetch("dial", { headers: { "content-type": "application/json" }, body: "{}" })
+    .then(r => r.json()).then(d => { result = d; }).catch(e => { failed = e; }).finally(() => { settled = true; });
+  if (MODEM.telnet) {
+    await out("|07telnet tankz.septic.net\n|08Trying tankz.septic.net...\n");
+    await call();
+    if (!result || result.error) { await out("|12telnet: connect to host: Connection timed out\n"); setMode("offline"); state = "nodial"; return false; }
+    if (result.busy) { await out("|12telnet: All " + result.lines + " node" + (result.lines > 1 ? "s are" : " is") + " busy. Connection refused.\n"); setMode("offline"); return false; }
+    token = result.token; myNode = result.node; LINES = result.lines; TIME_MIN = result.timeMin;
+    await out("|07Connected to tankz.septic.net.\nEscape character is '^]'.\n");
+    CPS = MODEM.cps;
+    setMode("online");
+    await sleep(300);
+    return true;
+  }
   await out("|07ATZ\n"); await sleep(250);
   await out("|15OK\n"); await sleep(300);
   await out("|07ATDT" + PHONE + "\n");
   await A.dialTone();
   await A.dtmf(PHONE);
-  let result = null, failed = null, settled = false;
-  rawFetch("dial", { headers: { "content-type": "application/json" }, body: "{}" })
-    .then(r => r.json()).then(d => { result = d; }).catch(e => { failed = e; }).finally(() => { settled = true; });
+  call();
   let rings = 0;
   while ((rings < 2 || !settled) && rings < 6) { await A.ring(); rings++; }
   if (!result || result.error) {
@@ -546,8 +618,9 @@ async function dial() {
   }
   token = result.token; myNode = result.node; LINES = result.lines; TIME_MIN = result.timeMin;
   if (myNode > 1) await out("|08(line " + (myNode - 1 === 1 ? "1 is" : "1-" + (myNode - 1) + " are") + " busy, rolling over to line " + myNode + ")\n");
-  await A.handshake();
-  await out("|15CONNECT 14400/ARQ/V32BIS/LAPM/V42BIS\n");
+  await A.handshake(MODEM.hs);
+  await out("|15" + MODEM.connect + "\n");
+  CPS = MODEM.cps;
   setMode("online");
   await sleep(400);
   return true;
@@ -1009,7 +1082,7 @@ async function fileMenu(f, side) {
     "|07 Uploaded by .. |14" + esc(f.uploader) + "|07 on " + d8(f.uploaded_at) + "\n" +
     "|07 Downloads .... |15" + f.downloads + "\n" +
     "|07 Cost ......... " + (cost ? "|15" + K(cost) + "|07 of your |15" + K(credit) + "|07 credit" : "|10FREE") + "\n" +
-    "|07 Est. time .... |15" + Math.max(1, Math.round(f.size / 1600 / 60)) + " min|08 at 14.4k (it'll be quicker than that)\n\n" +
+    "|07 Est. time .... |15" + xferTime(f.size) + "|08 at " + MODEM.label + "\n\n" +
     "|07{D} Download" + (f.viewable ? "  {V} View on-line (free)" : "") + "  {Q} Back |15");
   const k = await readKey("DQ" + (f.viewable ? "V" : ""));
   if (k === "V") return viewFile(f);
@@ -1074,13 +1147,19 @@ async function download(f, side) {
   const proto = { Z: "Zmodem", Y: "Ymodem-G", X: "Xmodem-1K" }[p];
   outNow("\n|11 " + proto + " send: |15" + f.filename + "  |08(" + f.size.toLocaleString("en-US") + " bytes)\n");
   const bar = await outEl("f7");
-  const dur = Math.min(4000, 800 + f.size / 2000), t0 = Date.now();
+  // The real file arrives at broadband speed; the meter runs at your modem's speed (capped at 90 s).
+  const lineCps = Math.min(CPS, MODEM.cps);
+  const dur = Math.min(90000, Math.max(600, f.size / lineCps * 1000)), t0 = Date.now();
+  let skipped = false;
+  if (dur > 5000) outNow("|08 (any key skips the wait)\n");
+  const skipKey = readKey(null); skipKey.then(() => { skipped = true; }).catch(() => {});
   while (true) {
-    const pr = Math.min(1, (Date.now() - t0) / dur);
-    drawBar(bar, pr, f.size, 1590 + Math.floor(Math.random() * 90));
+    const pr = skipped ? 1 : Math.min(1, (Date.now() - t0) / dur);
+    drawBar(bar, pr, f.size, Math.round(lineCps * (0.94 + Math.random() * 0.05)));
     if (pr >= 1) break;
     await sleep(100);
   }
+  if (want && !skipped) { want = null; renderLive(); }
   const a = document.createElement("a");
   a.href = API + r.url; a.download = f.filename; a.rel = "noopener";
   document.body.appendChild(a); a.click(); a.remove();
@@ -1088,6 +1167,12 @@ async function download(f, side) {
     (r.cost ? "|08 " + K(r.cost) + " deducted. Credit left: " + K(r.credit) + "\n" : "|08 Free file. No credit used.\n") +
     "|08 If it didn't start, call back within 10 minutes and the same link works.\n");
   await anyKey();
+}
+function xferTime(bytes) {
+  const secs = bytes / Math.min(CPS, MODEM.cps);
+  if (secs < 60) return Math.max(1, Math.round(secs)) + " sec";
+  if (secs < 3600) return Math.round(secs / 60) + " min";
+  return (secs / 3600).toFixed(1) + " hours";
 }
 function drawBar(bar, pr, size, cps) {
   const n = Math.round(pr * 40);

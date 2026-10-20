@@ -16,6 +16,9 @@ past its door.
 - Message bases: General Chat, Tech & Modems, For Sale / Wanted, Games & Doors, SysOp Feedback
 - File areas: Utilities, Games, Text Files, ANSI & Graphics, Music, Miscellaneous
 - Private e-mail between users, a one-liner wall, last callers, who's online, user list
+- **Modems from 300 baud to 56k, or Ethernet.** Pick one with `[S]` on the dialing screen. Each has its own
+  handshake song and `CONNECT` string, and screens and transfer meters run at that speed (tap to fast-forward).
+  Ethernet skips the modem and connects like telnet. The choice is remembered per browser.
 - Bulletins and a door game, *Escape the Tank*
 - **Teleconference**: a live group chat room for everyone online (the Cesspool has its own)
 - **Page the SysOp**: callers page you, your status bar flashes and beeps, and you answer into a live one-on-one chat
