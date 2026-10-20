@@ -71,7 +71,8 @@ for k, v in ART.items():
 
 cfg = json.loads((ROOT / "bbs.config.json").read_text())
 shell = (ROOT / "web" / "shell.html").read_text()
-app = (ROOT / "web" / "app.js").read_text().replace("/*__ART__*/null", json.dumps(ART))
+doors = "\n\n".join("// ---- web/doors/%s\n%s" % (f.name, f.read_text()) for f in sorted((ROOT / "web" / "doors").glob("*.js")))
+app = (ROOT / "web" / "app.js").read_text().replace("/*__ART__*/null", json.dumps(ART)).replace("/*__DOORS__*/", doors)
 page = shell.replace("/*__APP__*/", app)
 doc = lambda api: ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
                    '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>\n'
@@ -79,4 +80,9 @@ doc = lambda api: ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
 (ROOT / "public").mkdir(exist_ok=True)
 (ROOT / "public" / "index.html").write_text(doc(""))
 (ROOT / "index.html").write_text(doc(cfg.get("api_base", "")))
+# Door files (story files, wasm) for the GitHub Pages copy, which loads them from its own site.
+import shutil
+if (ROOT / "public" / "doors").exists():
+    shutil.rmtree(ROOT / "doors", ignore_errors=True)
+    shutil.copytree(ROOT / "public" / "doors", ROOT / "doors")
 print("built public/index.html and index.html (api_base=%r)" % cfg.get("api_base", ""))

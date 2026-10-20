@@ -4,6 +4,8 @@
 // token and a heartbeat. No line, no service. Accounts, ratios, uploads and the
 // validation queue are all enforced here, never in the browser.
 
+import { doorRoute } from "./doors/index.js";
+
 const BEAT_MS = 75_000;          // a line is dropped this long after its last heartbeat
 const TICKET_MS = 10 * 60_000;   // download links last 10 minutes
 const TEXT_EXT = /\.(txt|nfo|diz|asc|ans|doc|1st|me|faq|lst|bbs)$/i;
@@ -244,6 +246,13 @@ async function route(path, req, env) {
   const user = await getUser(env, line);
   const s = settings(env);
   const db = env.DB;
+
+  if (path.startsWith("door/")) {
+    const fail = (message, status = 400) => { throw new BoardError(message, status); };
+    return json(await doorRoute(path.slice(5), body, {
+      env, db, line, user, now, clean, fail, log: (kind, f) => logEvent(env, kind, { user_id: user.id, node: line.node, ...f }),
+    }));
+  }
 
   switch (path) {
     case "me": {

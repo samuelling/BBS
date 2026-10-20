@@ -1332,21 +1332,74 @@ async function uploadFile(area, side) {
 }
 
 // ---------------------------------------------------------------- doors
+// The door list. Each game lives in its own file under web/doors/ and registers itself in DOOR.
+const DOOR_LIST = [
+  { sec: "SHARED WORLDS |08one world everyone plays, a few turns a day" },
+  { k: "1", id: "usurper", name: "Usurper", what: "dungeon crawler, by Jakob Dangarden", exe: "USURPER.EXE" },
+  { k: "2", id: "reddrain", name: "Legend of the Red Drain", what: "forest fights, slay the drain dragon", exe: "REDDRAIN.EXE" },
+  { k: "3", id: "tradewipes", name: "Trade Wipes 2002", what: "space trading and conquest", exe: "TW2002.EXE" },
+  { k: "4", id: "barren", name: "Barren Drains Elite", what: "build an empire, crush the neighbors", exe: "BDE.EXE" },
+  { sec: "CLASSIC ADVENTURES |08the real games" },
+  { k: "5", id: "zork1", name: "Zork I", what: "The Great Underground Empire (1980)", exe: "ZORK1.DAT" },
+  { k: "6", id: "zork2", name: "Zork II", what: "The Wizard of Frobozz (1981)", exe: "ZORK2.DAT" },
+  { k: "7", id: "zork3", name: "Zork III", what: "The Dungeon Master (1982)", exe: "ZORK3.DAT" },
+  { k: "8", id: "advent", name: "Colossal Cave Adventure", what: "Crowther & Woods, where it began", exe: "ADVENT.EXE" },
+  { sec: "BASIC CLASSICS |08from the back of Creative Computing" },
+  { k: "9", id: "wumpus", name: "Hunt the Wumpus", what: "caves, bats, pits, one wumpus", exe: "WUMPUS.BAS" },
+  { k: "A", id: "trek", name: "Deep Space Patrol", what: "after the 1971 Star Trek game", exe: "PATROL.BAS" },
+  { k: "B", id: "hammurabi", name: "Hammurabi", what: "rule Sumeria for ten years", exe: "HAMURABI.BAS" },
+  { k: "C", id: "lander", name: "Lunar Lander", what: "don't make a new crater", exe: "LANDER.BAS" },
+  { sec: "HOMEGROWN" },
+  { k: "E", id: "escape", name: "Escape the Tank", what: "text adventure by the SysOp", exe: "ESCAPE.EXE" },
+];
 async function doors() {
+  if (!DOOR.escape) DOOR.escape = adventure;
   while (true) {
     act("Door games");
     cls();
-    await out("|11 Door Games\n" + rule(3) +
-      "|07   {1} |14Escape the Tank|07         text adventure by the SysOp    |10OPEN\n" +
-      "|07   {2} Legend of the Red Drain  RPG, 20 turns/day              |08closed\n" +
-      "|07   {3} Trade Wipes 2002         space trading                  |08closed\n" +
-      "\n|07   {Q} Back\n\n|08Open which door? |07");
-    const k = await readKey("123Q");
+    let menu = "|11 Door Games\n" + rule(3);
+    for (const d of DOOR_LIST) {
+      if (d.sec) { menu += "|03 " + d.sec + "\n"; continue; }
+      const open = typeof DOOR[d.id] === "function";
+      menu += "|07   {" + d.k + "} " + (open ? "|15" : "|08") + pad(d.name, 25) + (open ? "|07" : "|08") + pad(d.what, 38) + (open ? "" : "|08closed") + "\n";
+    }
+    menu += "\n|07   {H} High scores   {Q} Back\n\n|08Open which door? |07";
+    await out(menu);
+    const keys = DOOR_LIST.filter(d => d.k).map(d => d.k).join("") + "HQ";
+    const k = await readKey(keys);
     if (k === "Q") return;
-    if (k === "1") await adventure();
-    else { await out("\n|08Writing DOOR.SYS... loading... |12Door closed.|07 The SysOp is still configuring it.\n"); await anyKey(); }
+    if (k === "H") { await guard(doorScores); continue; }
+    const d = DOOR_LIST.find(x => x.k === k);
+    await out("\n|08Writing DOOR.SYS... loading " + d.exe + "... ");
+    if (typeof DOOR[d.id] !== "function") { await out("|12Door closed.|07 The SysOp is still configuring it.\n"); await anyKey(); continue; }
+    await sleep(500);
+    act("Playing " + d.name);
+    try { await DOOR[d.id](); }
+    catch (e) {
+      if (e instanceof Hangup) throw e;
+      if (!(e instanceof BoardError)) console.error(e);
+      await out("\n|12" + esc(e.message || "The door crashed.") + "|07\n"); await anyKey();
+    }
+    staleHotkeys();
   }
 }
+// High scores for the single-player doors (the shared worlds keep their own rankings).
+async function doorScores() {
+  const games = DOOR_LIST.filter(d => d.k && !["usurper", "reddrain", "tradewipes", "barren"].includes(d.id));
+  cls();
+  await out("|11 High Scores\n" + rule(3));
+  const r = await api("door/score/top", { games: games.map(g => g.id) });
+  for (const g of games) {
+    const rows = r.top[g.id] || [];
+    if (!rows.length) continue;
+    await out("|15 " + g.name + "\n");
+    for (const [i, x] of rows.slice(0, 3).entries())
+      await out("|08   " + (i + 1) + ". |14" + pad(esc(x.handle), 20) + " |15" + lpad(x.score, 7) + " |08" + esc(x.detail || "").slice(0, 36) + "\n");
+  }
+  if (!Object.values(r.top).some(v => v.length)) await out("|08 Nobody has finished anything yet.\n");
+  await anyKey();
+}
+
 const ROOMS = {
   bowl: { name: "Toilet Bowl", desc: "You are a rubber duck, bobbing in a toilet bowl. Somebody just leaned on the handle. The water is starting to swirl.", exits: { down: "pipe" } },
   pipe: { name: "Sewer Pipe", desc: "A four-inch cast iron pipe slopes away into the dark. It smells like 1958. Back up the way you came is too slippery.", exits: { east: "inlet" }, items: ["wrench"] },
@@ -1783,6 +1836,9 @@ async function couriers() {
   }
   await anyKey();
 }
+
+// ---------------------------------------------------------------- door games (web/doors/*.js)
+/*__DOORS__*/
 
 // ---------------------------------------------------------------- boot
 run(async () => { await splash(); await dialer(); });
