@@ -100,7 +100,20 @@ Yob), Deep Space Patrol (after Mike Mayfield's 1971 Star Trek), Hammurabi (after
 Dyment and David Ahl) and Lunar Lander (Jim Storer's 1969 physics). High scores are kept
 per caller (`[H]` on the door menu).
 
+**Usurper** is converted from the original Pascal source (github.com/rickparrish/Usurper):
+USURPER (c) 1993-2009 Jakob Dangarden, ported by Rick Parrish, bug fixes by Dan Zingaro.
+It's free software under the GNU GPL v2 or later. The core game is here (Main Street,
+dungeons 1-100 with Usurper's own 1,001 monsters and item tables, shops, inn, dormitory,
+bank, Level Masters, player fights, news and mail); `docs/USURPER.md` says what came
+from which source file and what's left to port (gangs, the castle and king, gods...).
+
 License texts for the bundled games are in `public/doors/`.
+
+## License
+
+Because the board bundles Usurper, the board is distributed under the GNU GPL v2 or later
+(`COPYING`). Zork (MIT) and Open Adventure (BSD-2-Clause) keep their own licenses, which
+are compatible.
 
 ## How it's built
 
