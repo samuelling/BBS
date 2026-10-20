@@ -1723,7 +1723,7 @@ async function answerPage(rows) {
 async function sysopConsole() {
   while (true) {
     act("Main menu");
-    const [q, ap, nu, pg] = await Promise.all([api("sysop/queue"), api("sysop/apps"), api("sysop/newusers"), api("chat/pages")]);
+    const [q, ap, nu, pg, nt] = await Promise.all([api("sysop/queue"), api("sysop/apps"), api("sysop/newusers"), api("chat/pages"), api("sysop/notify")]);
     showPages(pg.rows.length);
     cls();
     await out("|14 SysOp Console\n" + rule(6) +
@@ -1735,9 +1735,10 @@ async function sysopConsole() {
       "|07   {S} Secret entry (show or change)\n" +
       "|07   {W} Who's online / kick a caller\n" +
       "|07   {L} Phone lines              |08" + LINES + " line" + (LINES > 1 ? "s" : "") + " installed\n" +
+      "|07   {O} Notify my phone          " + (nt.on ? "|10on" : "|08off") + "\n" +
       "|07   {Q} Back\n\n" +
       "|08 Usage stats dashboard: |07" + ((API || location.origin) + "/sysop/").replace(/^https?:\/\//, "") + "\n\n|08Command: |07");
-    const k = await readKey("PNVAUSWLQ");
+    const k = await readKey("PNVAUSWLOQ");
     if (k === "Q") return;
     if (k === "P") await guard(() => answerPage(pg.rows));
     if (k === "N") await guard(newUsersAdmin);
@@ -1747,6 +1748,36 @@ async function sysopConsole() {
     if (k === "S") await guard(secretAdmin);
     if (k === "W") await guard(kickAdmin);
     if (k === "L") await guard(phoneLinesAdmin);
+    if (k === "O") await guard(notifyAdmin);
+  }
+}
+// Phone notifications through ntfy (free app, no account): the board posts to a private topic.
+async function notifyAdmin() {
+  while (true) {
+    const r = await api("sysop/notify");
+    cls();
+    await out("|14 Notify my phone\n" + rule(6) +
+      wrap("|07When new users sign up, files are uploaded or someone applies to the Cesspool, the board can ping your phone. The first one pings right away; anything else within the hour is bundled into one summary. Pages ping you right away, but only when you're not on the board.") + "\n\n");
+    if (r.on) {
+      await out("|07 Status: |10ON\n\n" +
+        "|07 On your phone: install |15ntfy|07 (free, App Store or Google Play), tap |15+|07, and\n" +
+        "|07 subscribe to this topic on the default server (ntfy.sh):\n\n" +
+        "|14    " + esc(r.topic) + "\n\n" +
+        "|08 Keep the topic to yourself: anyone who knows it can read the pings. Turning\n" +
+        "|08 it off and on again makes a new one. The pings only say how many things are\n" +
+        "|08 waiting (and who's paging), never passwords or files.\n\n" +
+        "|07   {T} Send a test   {X} Turn off   {N} New topic   {Q} Back\n\n|08Command: |07");
+      const k = await readKey("TXNQ");
+      if (k === "Q") return;
+      if (k === "T") { await api("sysop/notify", { op: "test" }); await out("|10Sent. It should land in a few seconds.\n"); await anyKey(); }
+      if (k === "X") await api("sysop/notify", { op: "off" });
+      if (k === "N") await api("sysop/notify", { op: "on" });
+    } else {
+      await out("|07 Status: |08OFF\n\n|07   {T} Turn on   {Q} Back\n\n|08Command: |07");
+      const k = await readKey("TQ");
+      if (k === "Q") return;
+      await api("sysop/notify", { op: "on" });
+    }
   }
 }
 async function newUsersAdmin() {

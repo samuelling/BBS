@@ -22,6 +22,8 @@
   ],
   // To use R2 instead: create a bucket, add it here, and set FILE_STORE to "r2".
   // "r2_buckets": [ { "binding": "FILES", "bucket_name": "septic-tankz-files" } ],
+  // Every 15 minutes: send the SysOp any bundled notification that has come due.
+  "triggers": { "crons": ["*/15 * * * *"] },
   "vars": {
     "BOARD_NAME": "The Septic Tankz",
     "PHONE_LINES": "1",

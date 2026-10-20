@@ -95,7 +95,9 @@ async function diskUsed(env) {
 }
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
+    // Work that can finish after the response (phone notifications) goes through env.later().
+    env = { ...env, later: p => ctx.waitUntil(Promise.resolve(p).catch(e => console.error(e))) };
     const url = new URL(req.url);
     if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
     try {
@@ -111,7 +113,72 @@ export default {
       return json({ error: "Line noise. Something broke on the board's end." }, 500);
     }
   },
+  // Every 15 minutes: send the SysOp the bundled "things are waiting" notification if one is due.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(notifyFlush(env).catch(e => console.error(e)));
+  },
 };
+
+// ---------------------------------------------------------------- SysOp phone notifications (ntfy)
+// The SysOp subscribes to a private ntfy topic (set up from the SysOp console). New users,
+// uploads and Cesspool applications are bundled: the first one pings right away, anything
+// else within the hour is rolled into one summary that the cron sends when the hour is up.
+// Pages ping right away, but only when the SysOp isn't already on the board.
+const NOTIFY_GAP = 60 * 60_000;
+async function setConfig(env, k, v) {
+  await env.DB.prepare("INSERT OR REPLACE INTO config (k, v) VALUES (?, ?)").bind(k, String(v)).run();
+}
+async function notifyTarget(env) {
+  const topic = await config(env, "ntfy_topic");
+  if (!topic) return null;
+  return (await config(env, "ntfy_server") || "https://ntfy.sh").replace(/\/$/, "") + "/" + topic;
+}
+async function ntfy(env, url, { title, message, priority = 3, tags = "toilet", click }) {
+  const r = await fetch(url, {
+    method: "POST", body: message,
+    headers: { title, priority: String(priority), tags, ...(click ? { click } : {}) },
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!r.ok) throw new Error("ntfy " + r.status);
+}
+async function waitingCounts(env) {
+  const r = await env.DB.batch([
+    env.DB.prepare("SELECT COUNT(*) n FROM users WHERE level < ? AND banned = 0").bind(VALIDATED),
+    env.DB.prepare("SELECT COUNT(*) n FROM files WHERE status = 'pending'"),
+    env.DB.prepare("SELECT COUNT(*) n FROM apps WHERE status = 'open'"),
+  ]);
+  return { users: r[0].results[0].n, uploads: r[1].results[0].n, apps: r[2].results[0].n };
+}
+function waitingText(w) {
+  const bits = [];
+  if (w.users) bits.push(w.users + " new user" + (w.users > 1 ? "s" : ""));
+  if (w.uploads) bits.push(w.uploads + " upload" + (w.uploads > 1 ? "s" : ""));
+  if (w.apps) bits.push(w.apps + " Cesspool application" + (w.apps > 1 ? "s" : ""));
+  return bits.length ? bits.join(", ") + " waiting for you." : "";
+}
+async function notifySummary(env, url) {
+  const text = waitingText(await waitingCounts(env));
+  await setConfig(env, "ntfy_pending", "0");
+  if (!text) return false;   // the SysOp already dealt with it
+  await ntfy(env, url, { title: "The Septic Tankz", message: text, click: await notifyClick(env) });
+  await setConfig(env, "ntfy_last", now());
+  return true;
+}
+async function notifyClick(env) { return (await config(env, "board_url")) || undefined; }
+// Something new landed in a SysOp queue.
+async function notifyQueue(env) {
+  const url = await notifyTarget(env);
+  if (!url) return;
+  const last = +(await config(env, "ntfy_last") || 0);
+  if (now() - last < NOTIFY_GAP) return setConfig(env, "ntfy_pending", "1");
+  await notifySummary(env, url);
+}
+async function notifyFlush(env) {
+  const url = await notifyTarget(env);
+  if (!url || (await config(env, "ntfy_pending")) !== "1") return;
+  if (now() - +(await config(env, "ntfy_last") || 0) < NOTIFY_GAP) return;
+  await notifySummary(env, url);
+}
 
 // ---------------------------------------------------------------- helpers
 const now = () => Date.now();
@@ -451,6 +518,10 @@ async function route(path, req, env) {
       if (recent.n >= 3) throw new BoardError("You've paged three times already. Leave the SysOp a comment instead.");
       const r = await db.prepare("INSERT INTO pages (user_id, handle, node, reason, at) VALUES (?, ?, ?, ?, ?) RETURNING id").bind(user.id, user.handle, line.node, reason, t).first();
       const sysop = await db.prepare("SELECT l.node FROM line l JOIN users u ON u.id = l.user_id WHERE u.level >= 255 AND l.token IS NOT NULL AND l.beat > ?").bind(t - BEAT_MS).first();
+      if (!sysop && recent.n === 0) env.later(notifyTarget(env).then(url => url && ntfy(env, url, {
+        title: user.handle + " is paging you", priority: 4, tags: "telephone_receiver", click: undefined,
+        message: (reason ? "\"" + reason + "\" " : "") + "On node " + line.node + " right now. Pages expire after 5 minutes.",
+      })));
       return json({ id: r.id, sysopOnline: !!sysop });
     }
     case "chat/pagestatus": {
@@ -584,6 +655,22 @@ async function route(path, req, env) {
         db.prepare("UPDATE config SET v = ? WHERE k = 'secret_pass'").bind(pass),
       ]);
       return json({ ok: true, word, pass });
+    }
+    case "sysop/notify": {
+      requireSysop(user);
+      if (body.op === "on") {
+        await setConfig(env, "ntfy_topic", "tankz-" + randomHex(8));
+        await setConfig(env, "board_url", new URL(req.url).origin);
+      }
+      if (body.op === "off") await db.prepare("DELETE FROM config WHERE k = 'ntfy_topic'").run();
+      const url = await notifyTarget(env);
+      if (body.op === "test") {
+        if (!url) throw new BoardError("Turn notifications on first.");
+        try {
+          await ntfy(env, url, { title: "The Septic Tankz", message: "Test page from the SysOp console. If you can read this, you're wired up.", click: await notifyClick(env) });
+        } catch (e) { throw new BoardError("Couldn't reach the notification server (" + (e.message || e) + ")."); }
+      }
+      return json({ on: !!url, url, topic: await config(env, "ntfy_topic"), waiting: await waitingCounts(env) });
     }
     case "sysop/lines": {
       requireSysop(user);
@@ -789,6 +876,8 @@ async function newUser(req, env, body) {
     db.prepare("UPDATE line SET user_id = ?, handle = ?, activity = 'Main menu' WHERE node = ?").bind(u.id, u.handle, line.node),
     db.prepare("INSERT INTO callers (user_id, handle, node, at) VALUES (?, ?, ?, ?)").bind(u.id, u.handle, line.node, t),
   ]);
+  if (first) env.later(setConfig(env, "board_url", new URL(req.url).origin));
+  if (waits) env.later(notifyQueue(env));
   return json({ user: publicUser(u), sysop: first, pendingValidation: waits, unread: 0, timeLeft: timeLeft(env, line) });
 }
 
@@ -802,6 +891,7 @@ async function apply(req, env, body) {
   if (open) await env.DB.prepare("UPDATE apps SET text = ?, at = ? WHERE id = ?").bind(text, now(), open.id).run();
   else await env.DB.prepare("INSERT INTO apps (user_id, handle, text, at) VALUES (?, ?, ?, ?)").bind(user.id, user.handle, text, now()).run();
   await hangupToken(env, line.token);
+  env.later(notifyQueue(env));
   return json({ ok: true });
 }
 
@@ -851,6 +941,7 @@ async function upload(req, env) {
   await db.prepare("UPDATE files SET r2_key = ? WHERE id = ?").bind(key, row.id).run();
   await logEvent(env, "upload", { user_id: user.id, node: line.node, modem: line.modem, value: size, ref: row.id });
   if (sysop) await db.prepare("UPDATE users SET ul_bytes = ul_bytes + ?, ul_files = ul_files + 1 WHERE id = ?").bind(size, user.id).run();
+  if (!sysop) env.later(notifyQueue(env));
   return json({ ok: true, filename: name, size, pending: !sysop });
 }
 
