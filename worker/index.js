@@ -21,6 +21,8 @@ class BoardError extends Error {
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json", ...CORS } });
 
+const MAX_LINES = 8;   // an 8-line board was serious business
+
 const STORE_CAP_MB = { kv: 25, r2: 100, http: 100 };   // largest single file each backend takes
 
 function settings(env) {
@@ -30,7 +32,7 @@ function settings(env) {
     store,
     quota: n(env.STORAGE_QUOTA_MB, store === "kv" ? 900 : 0) * 1048576,   // 0 = no board-wide limit
     board: env.BOARD_NAME || "The Septic Tankz",
-    lines: Math.min(16, n(env.PHONE_LINES, 1)),
+    lines: Math.min(MAX_LINES, n(env.PHONE_LINES, 1)),
     timeMin: n(env.TIME_LIMIT_MIN, 60),
     maxUpload: Math.min(n(env.MAX_UPLOAD_MB, 25), STORE_CAP_MB[store]) * 1048576,
     dailyUpload: n(env.DAILY_UPLOAD_MB, 200) * 1048576,
@@ -141,6 +143,11 @@ async function config(env, k) {
   const r = await env.DB.prepare("SELECT v FROM config WHERE k = ?").bind(k).first();
   return r ? r.v : null;
 }
+// How many phone lines the board has. The SysOp sets it from the console; PHONE_LINES is the default.
+async function phoneLines(env) {
+  const v = +(await config(env, "phone_lines"));
+  return v >= 1 ? Math.min(MAX_LINES, Math.trunc(v)) : settings(env).lines;
+}
 async function ipHash(env, req) {
   const ip = req.headers.get("cf-connecting-ip") || "local";
   return sha256(ip + "|" + (await config(env, "pepper") || ""));
@@ -236,9 +243,9 @@ async function route(path, req, env) {
     }
     case "who": {
       const t = now();
-      const rows = (await db.prepare("SELECT node, handle, activity, elite_ok FROM line WHERE token IS NOT NULL AND beat > ? AND node <= ? ORDER BY node")
-        .bind(t - BEAT_MS, s.lines).all()).results;
-      return json({ lines: s.lines, nodes: rows.map(r => ({
+      const rows = (await db.prepare("SELECT node, handle, activity, elite_ok FROM line WHERE token IS NOT NULL AND beat > ? ORDER BY node")
+        .bind(t - BEAT_MS).all()).results;
+      return json({ lines: await phoneLines(env), nodes: rows.map(r => ({
         node: r.node, local: r.node === 0, handle: r.handle || "(logging in)",
         activity: r.elite_ok && !line.elite_ok ? "Reading bulletins" : (r.activity || ""),
         you: r.node === line.node })) });
@@ -558,6 +565,14 @@ async function route(path, req, env) {
       ]);
       return json({ ok: true, word, pass });
     }
+    case "sysop/lines": {
+      requireSysop(user);
+      const want = Math.trunc(+body.count);
+      if (!(want >= 1 && want <= MAX_LINES)) throw new BoardError(`Between 1 and ${MAX_LINES} lines.`);
+      await db.prepare("INSERT OR REPLACE INTO config (k, v) VALUES ('phone_lines', ?)").bind(String(want)).run();
+      // Callers on lines that were just disconnected finish their call; nobody new can dial in on them.
+      return json({ ok: true, lines: want });
+    }
     case "sysop/delpost": {
       requireSysop(user);
       await db.prepare("DELETE FROM posts WHERE id = ?").bind(+body.id).run();
@@ -620,7 +635,7 @@ async function info(env) {
     env.DB.prepare("SELECT COALESCE(SUM(size),0) b FROM files WHERE content IS NULL"),
   ]);
   return json({
-    board: s.board, lines: s.lines, timeMin: s.timeMin, users: r[0].results[0].n,
+    board: s.board, lines: await phoneLines(env), timeMin: s.timeMin, users: r[0].results[0].n,
     files: r[1].results[0].n, bytes: r[1].results[0].b, posts: r[2].results[0].n, callers: r[3].results[0].n,
     rules: { mainRatio: s.mainRatio, eliteRatio: s.eliteRatio, startCredit: s.startCredit, maxUpload: s.maxUpload },
     fresh: r[0].results[0].n === 0,
@@ -631,7 +646,8 @@ async function info(env) {
 
 async function dial(req, env) {
   const s = settings(env), t = now(), db = env.DB;
-  const nodes = Array.from({ length: s.lines }, (_, i) => i + 1);
+  const lines = await phoneLines(env);
+  const nodes = Array.from({ length: lines }, (_, i) => i + 1);
   await db.prepare(`INSERT OR IGNORE INTO line (node) VALUES ${nodes.map(() => "(?)").join(",")}`).bind(...nodes).run();
   const token = randomHex(24), ih = await ipHash(env, req);
   for (const n of nodes) {
@@ -639,9 +655,9 @@ async function dial(req, env) {
       "UPDATE line SET token = ?1, user_id = NULL, handle = NULL, activity = 'Logging in', since = ?2, beat = ?2, backdoor = 0, elite_ok = 0, fails = 0, posted = 0, ip_hash = ?3 " +
       "WHERE node = ?4 AND (token IS NULL OR beat < ?5 OR since < ?6)"
     ).bind(token, t, ih, n, t - BEAT_MS, t - s.timeMin * 60_000).run();
-    if (r.meta.changes) return json({ node: n, token, lines: s.lines, timeMin: s.timeMin });
+    if (r.meta.changes) return json({ node: n, token, lines, timeMin: s.timeMin });
   }
-  return json({ busy: true, lines: s.lines });
+  return json({ busy: true, lines });
 }
 
 async function login(req, env, body) {

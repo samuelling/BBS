@@ -42,6 +42,7 @@ past its door.
 - Users: grant or revoke Cesspool access, ban, adjust credit
 - Change the secret entry handle and password
 - Kick a caller off a line
+- Phone lines: run a 1- to 8-line board. Callers who find line 1 busy roll over to the next free line
 
 **Local console.** On the dialing directory, `[L]` logs the SysOp in at the board
 itself. It doesn't use a phone line and has no time or idle limit, so you can sit
@@ -115,7 +116,7 @@ In `wrangler.jsonc` under `vars`:
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| `PHONE_LINES` | 1 | Callers allowed on at once (max 16) |
+| `PHONE_LINES` | 1 | Starting number of phone lines. After that, set it from the SysOp console (1-8). |
 | `TIME_LIMIT_MIN` | 60 | Minutes per call |
 | `REQUIRE_VALIDATION` | 1 | New users wait for SysOp validation before they can post, upload or download (0 = instant access) |
 | `FILE_STORE` | kv | `kv`, `r2` or `http` (see above) |

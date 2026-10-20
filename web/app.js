@@ -545,6 +545,7 @@ async function dial() {
     return false;
   }
   token = result.token; myNode = result.node; LINES = result.lines; TIME_MIN = result.timeMin;
+  if (myNode > 1) await out("|08(line " + (myNode - 1 === 1 ? "1 is" : "1-" + (myNode - 1) + " are") + " busy, rolling over to line " + myNode + ")\n");
   await A.handshake();
   await out("|15CONNECT 14400/ARQ/V32BIS/LAPM/V42BIS\n");
   setMode("online");
@@ -1351,8 +1352,9 @@ async function sysopConsole() {
       "|07   {U} Users\n" +
       "|07   {S} Secret entry (show or change)\n" +
       "|07   {W} Who's online / kick a caller\n" +
+      "|07   {L} Phone lines              |08" + LINES + " line" + (LINES > 1 ? "s" : "") + " installed\n" +
       "|07   {Q} Back\n\n|08Command: |07");
-    const k = await readKey("PNVAUSWQ");
+    const k = await readKey("PNVAUSWLQ");
     if (k === "Q") return;
     if (k === "P") await guard(() => answerPage(pg.rows));
     if (k === "N") await guard(newUsersAdmin);
@@ -1361,6 +1363,7 @@ async function sysopConsole() {
     if (k === "U") await guard(usersAdmin);
     if (k === "S") await guard(secretAdmin);
     if (k === "W") await guard(kickAdmin);
+    if (k === "L") await guard(phoneLinesAdmin);
   }
 }
 async function newUsersAdmin() {
@@ -1484,6 +1487,28 @@ async function secretAdmin() {
   if (!word || !pass) return;
   await api("sysop/secret", { word, pass });
   await out("|10Changed.\n"); await sleep(600);
+}
+async function phoneLinesAdmin() {
+  cls();
+  await out("|14 Phone lines\n" + rule(6) +
+    "|07 The Septic Tankz has |15" + LINES + "|07 line" + (LINES > 1 ? "s" : "") + " in its hunt group. Callers who find line 1\n" +
+    " busy roll over to the next free line. Each extra line means one more caller\n online at a time (and more people in the Teleconference).\n\n" +
+    "|07 How many lines do you want? |08(1-8)|07 |15");
+  const n = parseInt(await readLine({ max: 1 }), 10);
+  if (!(n >= 1 && n <= 8) || n === LINES) return;
+  const r = await api("sysop/lines", { count: n });
+  const was = LINES; LINES = r.lines;
+  if (r.lines > was) {
+    await out("\n|08Calling NYNEX business office");
+    for (let i = 0; i < 4; i++) { await sleep(350); await out("|08."); }
+    await out("\n|08A guy in a van shows up three to five business days later");
+    for (let i = 0; i < 4; i++) { await sleep(350); await out("|08."); }
+    await out("\n|10*** " + (r.lines - was) + " new line" + (r.lines - was > 1 ? "s" : "") + " installed. The Septic Tankz is now a " + r.lines + "-line board. ***\n");
+    if (A.ready()) A.tone([350, 440], 0, 0.6, 0.3);
+  } else {
+    await out("\n|12*** Line" + (was - r.lines > 1 ? "s " + (r.lines + 1) + "-" + was : " " + was) + " disconnected.|07 Anyone on " + (was - r.lines > 1 ? "them" : "it") + " finishes their call. Now " + r.lines + " line" + (r.lines > 1 ? "s" : "") + ".\n");
+  }
+  await anyKey();
 }
 async function kickAdmin() {
   const r = await api("who");
