@@ -583,7 +583,7 @@ async function dial() {
   setMode("dialing");
   outNow("\n");
   let result = null, failed = null, settled = false;
-  const call = () => rawFetch("dial", { headers: { "content-type": "application/json" }, body: "{}" })
+  const call = () => rawFetch("dial", { headers: { "content-type": "application/json" }, body: JSON.stringify({ modem: MODEM.id }) })
     .then(r => r.json()).then(d => { result = d; }).catch(e => { failed = e; }).finally(() => { settled = true; });
   if (MODEM.telnet) {
     await out("|07telnet tankz.septic.net\n|08Trying tankz.septic.net...\n");
@@ -1438,7 +1438,8 @@ async function sysopConsole() {
       "|07   {S} Secret entry (show or change)\n" +
       "|07   {W} Who's online / kick a caller\n" +
       "|07   {L} Phone lines              |08" + LINES + " line" + (LINES > 1 ? "s" : "") + " installed\n" +
-      "|07   {Q} Back\n\n|08Command: |07");
+      "|07   {Q} Back\n\n" +
+      "|08 Usage stats dashboard: |07" + ((API || location.origin) + "/sysop/").replace(/^https?:\/\//, "") + "\n\n|08Command: |07");
     const k = await readKey("PNVAUSWLQ");
     if (k === "Q") return;
     if (k === "P") await guard(() => answerPage(pg.rows));

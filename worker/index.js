@@ -213,8 +213,18 @@ async function route(path, req, env) {
 
   switch (path) {
     case "info": return info(env);
-    case "dial": return dial(req, env);
-    case "hangup": { const t = req.headers.get("x-line"); if (t) await hangupToken(env, t); return json({ ok: true }); }
+    case "dial": return dial(req, env, body);
+    case "stats/login": return statsLogin(env, body);
+    case "stats": return stats(req, env, body);
+    case "hangup": {
+      const t = req.headers.get("x-line");
+      if (t) {
+        const l = await env.DB.prepare("SELECT * FROM line WHERE token = ?").bind(t).first();
+        if (l) await logCallEnd(env, l, now());
+        await hangupToken(env, t);
+      }
+      return json({ ok: true });
+    }
     case "beat": {
       const line = await getLine(env, req, clean(body.act, 30) || null);
       let pages = 0;
@@ -323,6 +333,7 @@ async function route(path, req, env) {
       const ticket = randomHex(20), t = now();
       await db.batch([
         db.prepare("INSERT INTO tickets (id, file_id, user_id, expires) VALUES (?, ?, ?, ?)").bind(ticket, f.id, user.id, t + TICKET_MS),
+        db.prepare("INSERT INTO events (at, kind, user_id, node, modem, value, ref) VALUES (?, 'download', ?, ?, ?, ?, ?)").bind(t, user.id, line.node, line.modem, f.size, f.id),
         db.prepare("UPDATE files SET downloads = downloads + 1 WHERE id = ?").bind(f.id),
         db.prepare("DELETE FROM tickets WHERE expires < ?").bind(t),
       ]);
@@ -644,19 +655,39 @@ async function info(env) {
   });
 }
 
-async function dial(req, env) {
+// Usage log for the stats dashboard. Never lets a logging hiccup break the board.
+async function logEvent(env, kind, f = {}) {
+  try {
+    await env.DB.prepare("INSERT INTO events (at, kind, user_id, node, modem, value, ref) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .bind(f.at ?? now(), kind, f.user_id ?? null, f.node ?? null, f.modem ?? null, Math.max(0, Math.round(f.value || 0)), f.ref ?? null).run();
+    if (Math.random() < 0.01) await env.DB.prepare("DELETE FROM events WHERE at < ?").bind(now() - 400 * 86_400_000).run();
+  } catch (e) { console.error("event log", e); }
+}
+async function logCallEnd(env, l, endAt) {
+  if (!l || !l.token || !l.since || l.node === 0) return;
+  await logEvent(env, "call_end", { at: endAt, user_id: l.user_id, node: l.node, modem: l.modem, value: Math.max(0, endAt - l.since) });
+}
+
+async function dial(req, env, body = {}) {
   const s = settings(env), t = now(), db = env.DB;
+  const modem = clean(body.modem, 8) || null;
   const lines = await phoneLines(env);
   const nodes = Array.from({ length: lines }, (_, i) => i + 1);
   await db.prepare(`INSERT OR IGNORE INTO line (node) VALUES ${nodes.map(() => "(?)").join(",")}`).bind(...nodes).run();
   const token = randomHex(24), ih = await ipHash(env, req);
   for (const n of nodes) {
+    const prev = await db.prepare("SELECT * FROM line WHERE node = ? AND token IS NOT NULL AND (beat < ? OR since < ?)").bind(n, t - BEAT_MS, t - s.timeMin * 60_000).first();
     const r = await db.prepare(
-      "UPDATE line SET token = ?1, user_id = NULL, handle = NULL, activity = 'Logging in', since = ?2, beat = ?2, backdoor = 0, elite_ok = 0, fails = 0, posted = 0, ip_hash = ?3 " +
+      "UPDATE line SET token = ?1, user_id = NULL, handle = NULL, activity = 'Logging in', since = ?2, beat = ?2, backdoor = 0, elite_ok = 0, fails = 0, posted = 0, ip_hash = ?3, room = NULL, modem = ?7 " +
       "WHERE node = ?4 AND (token IS NULL OR beat < ?5 OR since < ?6)"
-    ).bind(token, t, ih, n, t - BEAT_MS, t - s.timeMin * 60_000).run();
-    if (r.meta.changes) return json({ node: n, token, lines, timeMin: s.timeMin });
+    ).bind(token, t, ih, n, t - BEAT_MS, t - s.timeMin * 60_000, modem).run();
+    if (r.meta.changes) {
+      if (prev) await logCallEnd(env, prev, Math.min(prev.beat, prev.since + s.timeMin * 60_000));   // a caller who dropped without hanging up
+      await logEvent(env, "dial_ok", { node: n, modem });
+      return json({ node: n, token, lines, timeMin: s.timeMin });
+    }
   }
+  await logEvent(env, "dial_busy", { modem });
   return json({ busy: true, lines });
 }
 
@@ -809,6 +840,7 @@ async function upload(req, env) {
     throw new BoardError("Transfer aborted. Line noise?", 400);
   }
   await db.prepare("UPDATE files SET r2_key = ? WHERE id = ?").bind(key, row.id).run();
+  await logEvent(env, "upload", { user_id: user.id, node: line.node, modem: line.modem, value: size, ref: row.id });
   if (sysop) await db.prepare("UPDATE users SET ul_bytes = ul_bytes + ?, ul_files = ul_files + 1 WHERE id = ?").bind(size, user.id).run();
   return json({ ok: true, filename: name, size, pending: !sysop });
 }
@@ -831,4 +863,54 @@ async function serveTicket(env, id) {
   if (!body) return new Response("File is missing from the drive.\n", { status: 404, headers: CORS });
   headers["content-length"] = String(f.size);
   return new Response(body, { headers });
+}
+
+// ---------------------------------------------------------------- SysOp stats dashboard (/sysop)
+// Sign-in gives a stateless token: user id + expiry, HMAC-signed with the board's pepper.
+async function hmac(env, msg) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode("stats:" + (await config(env, "pepper") || "")),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(msg));
+  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+async function statsLogin(env, body) {
+  const u = await env.DB.prepare("SELECT * FROM users WHERE handle = ?").bind(clean(body.handle, 30)).first();
+  const pass = typeof body.password === "string" ? body.password.slice(0, 64) : "";
+  if (!u || u.level < 255 || u.banned || !timingSafeEq(await hashPass(pass, u.salt), u.pass_hash)) {
+    throw new BoardError("That's not a SysOp login.", 401);
+  }
+  const exp = now() + 12 * 3600_000, msg = u.id + "." + exp;
+  return json({ token: msg + "." + (await hmac(env, msg)), handle: u.handle, expires: exp });
+}
+async function stats(req, env, body) {
+  const auth = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+  const [uid, exp, sig] = auth.split(".");
+  if (!sig || +exp < now() || !timingSafeEq(sig, await hmac(env, uid + "." + exp))) throw new BoardError("Sign in again.", 401);
+  const sysop = await env.DB.prepare("SELECT level FROM users WHERE id = ? AND banned = 0").bind(+uid).first();
+  if (!sysop || sysop.level < 255) throw new BoardError("Sign in again.", 401);
+
+  const s = settings(env), db = env.DB, t = now();
+  const days = Math.min(400, Math.max(1, Math.trunc(+body.days) || 30));
+  const since = t - days * 86_400_000;
+  const all = (sql, ...b) => db.prepare(sql).bind(...b);
+  const r = await db.batch([
+    all("SELECT at, kind, value, modem, ref, user_id FROM events WHERE at > ? ORDER BY at LIMIT 50000", since),
+    all("SELECT at, user_id, handle, node, elite FROM callers WHERE at > ? ORDER BY at LIMIT 50000", since),
+    all("SELECT id, handle, created_at, level, elite, banned, calls, ul_files, ul_bytes, dl_files, dl_bytes, posts, last_call FROM users"),
+    all("SELECT p.at, b.side FROM posts p JOIN bases b ON b.id = p.base_id WHERE p.at > ? AND p.from_id IS NOT NULL", since),
+    all("SELECT at, room FROM chat WHERE at > ? AND kind = 'msg'", since),
+    all("SELECT at FROM mail WHERE at > ?", since),
+    all("SELECT at FROM oneliners WHERE at > ?", since),
+    all("SELECT f.id, f.filename, f.size, f.downloads, f.status, a.name area, a.side FROM files f JOIN areas a ON a.id = f.area_id"),
+    all("SELECT COALESCE(SUM(size),0) b FROM files WHERE content IS NULL"),
+    all("SELECT COUNT(*) n FROM apps WHERE status = 'open'"),
+    all("SELECT at FROM pages WHERE at > ?", since),
+    all("SELECT node, handle, activity, since FROM line WHERE token IS NOT NULL AND beat > ? ORDER BY node", t - BEAT_MS),
+  ]);
+  const rows = i => r[i].results;
+  return json({
+    now: t, days, lines: await phoneLines(env), quota: s.quota, used: rows(8)[0].b, openApps: rows(9)[0].n,
+    events: rows(0), callers: rows(1), users: rows(2), posts: rows(3), chat: rows(4), mail: rows(5),
+    oneliners: rows(6), files: rows(7), pages: rows(10), online: rows(11),
+  });
 }

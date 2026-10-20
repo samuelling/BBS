@@ -47,6 +47,14 @@ past its door.
 - Kick a caller off a line
 - Phone lines: run a 1- to 8-line board. Callers who find line 1 busy roll over to the next free line
 
+**Stats dashboard.** `/sysop` on the board's address (for example
+`https://bbs.samuelling.workers.dev/sysop/`) is a modern dashboard for the SysOp:
+calls and busy signals per day, when people call (weekday × hour), transfer volume,
+modem mix, community activity, top downloads, callers and uploaders, storage, and
+what's waiting for you. Sign in with the SysOp handle and password; the session lasts
+12 hours in that browser tab. Usage is logged from the moment this shipped, and
+entries older than about 400 days are pruned.
+
 **Local console.** On the dialing directory, `[L]` logs the SysOp in at the board
 itself. It doesn't use a phone line and has no time or idle limit, so you can sit
 there waiting for pages while callers dial in. It shows up as `LCL` in Who's Online.
