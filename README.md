@@ -121,13 +121,16 @@ are compatible.
 
 - Every API call: an approximate per-address limit (Cloudflare rate-limit binding: 240 a minute,
   uploads 6 a minute).
-- Dialing: 30 calls per 10 minutes per address, and one address holds at most 2 lines (a third call
-  drops its oldest), so nobody can tie up every line.
+- Dialing: busy signals are free, so auto-redial never trips anything. 30 connects per 10 minutes
+  per address, and one address holds at most 2 lines (a third call drops its oldest), so nobody can
+  tie up every line.
 - Logins: 3 bad passwords and the board hangs up; 10 bad passwords in 15 minutes locks out that
   address, and 10 against one account locks that account, for 15 minutes. The local console login
   counts too.
 - Sign-ups: 3 per address per day, 15 per hour board-wide, and closed while 25 new users are
-  already waiting for validation.
+  already waiting for validation. No account is created sooner than 15 seconds after the call
+  connects (people never notice; scripts slow to a crawl). Accounts the SysOp never validates are
+  flushed after 14 days, and the new-user queue has a Flush all key for spam waves.
 - Uploads: 15 per address per hour, at most 5 files or 100 MB per caller waiting for validation, on
   top of the daily upload allowance and the storage quota.
 - Hitting a limit is logged (kind `throttle` in the events table).

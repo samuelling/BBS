@@ -1688,9 +1688,16 @@ async function newUsersAdmin() {
       "|07 From ......... |15" + esc(u.location || "(didn't say)") + "\n" +
       "|07 Signed up .... |15" + d8(u.created_at) + " " + hm(u.created_at) + "|07, " + u.calls + " call" + (u.calls === 1 ? "" : "s") + " so far\n" + rule(8) +
       "|07 " + (u.app ? wrap(u.app, 76).split("\n").map(esc).join("\n|07 ") : "|08(no application answers)") + "\n" + rule(8) +
-      "|07{V} Validate  {D} Delete account  {S} Skip  {Q} Quit |15");
-    const k = await readKey("VDSQ");
+      "|07{V} Validate  {D} Delete account  {S} Skip  {F} Flush all  {Q} Quit |15");
+    const k = await readKey("VDSFQ");
     if (k === "Q") return;
+    if (k === "F") {
+      await out("\n|12Delete all " + rows.length + " waiting accounts for good? {Y} Yes  {N} No |15");
+      if ((await readKey("YN")) === "N") { i--; continue; }
+      const r = await api("sysop/purgenew");
+      await out("\n|12Flushed " + r.flushed + " account" + (r.flushed === 1 ? "" : "s") + ".\n"); await anyKey();
+      return;
+    }
     if (k === "S") continue;
     if (k === "D") {
       await out("\n|12Delete " + esc(u.handle) + " for good? {Y} Yes  {N} No |15");

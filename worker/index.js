@@ -224,7 +224,7 @@ async function notifyFlush(env) {
 // binding, if configured), and exact fixed-window counters in D1 for the things worth hammering:
 // signing up, dialing, guessing passwords and uploading.
 const LIMITS = {
-  dialIp:      { n: 30, win: 10 * 60_000, msg: "Too many calls from your number. Wait a few minutes and try again." },
+  dialIp:      { n: 30, win: 10 * 60_000, msg: "Too many calls from your number. Wait a few minutes and try again." },   // connects only
   signupIp:    { n: 3,  win: 24 * 3600_000, msg: "Too many new accounts from your phone number today." },
   signupAll:   { n: 15, win: 3600_000, msg: "Lots of new users this hour. The SysOp's queue needs a breather; try again later." },
   badLoginIp:  { n: 10, win: 15 * 60_000, msg: "Too many bad logins from your number. Wait 15 minutes." },
@@ -254,6 +254,8 @@ async function hit(env, kind, key, { peek = false } = {}) {
 }
 async function sweepThrottle(env) {
   await env.DB.prepare("DELETE FROM throttle WHERE reset < ?").bind(now()).run();
+  // New accounts the SysOp never got to are flushed after 14 days, so a spam wave can't sit in the queue forever.
+  await env.DB.prepare("DELETE FROM users WHERE level < ? AND banned = 0 AND created_at < ?").bind(VALIDATED, now() - 14 * 86_400_000).run();
 }
 
 // ---------------------------------------------------------------- helpers
@@ -683,6 +685,15 @@ async function route(path, req, env) {
       const rows = (await db.prepare("SELECT id, handle, location, created_at, calls, app FROM users WHERE level < ? AND banned = 0 ORDER BY id LIMIT 100").bind(VALIDATED).all()).results;
       return json({ rows });
     }
+    case "sysop/purgenew": {
+      requireSysop(user);
+      const ids = (await db.prepare("SELECT id FROM users WHERE level < ? AND banned = 0").bind(VALIDATED).all()).results.map(r => r.id);
+      for (const id of ids) await db.batch([
+        db.prepare("DELETE FROM users WHERE id = ?").bind(id),
+        db.prepare("UPDATE line SET token = NULL, user_id = NULL, handle = NULL, beat = 0 WHERE user_id = ?").bind(id),
+      ]);
+      return json({ ok: true, flushed: ids.length });
+    }
     case "sysop/validateuser": {
       requireSysop(user);
       const u = await db.prepare("SELECT * FROM users WHERE id = ? AND level < ?").bind(+body.id, VALIDATED).first();
@@ -877,7 +888,7 @@ async function dial(req, env, body = {}) {
   const nodes = Array.from({ length: lines }, (_, i) => i + 1);
   await db.prepare(`INSERT OR IGNORE INTO line (node) VALUES ${nodes.map(() => "(?)").join(",")}`).bind(...nodes).run();
   const token = randomHex(24), ih = await ipHash(env, req);
-  await hit(env, "dialIp", ih);
+  await hit(env, "dialIp", ih, { peek: true });   // only connects count; busy signals (auto-redial) are free
   // One address can hold at most MAX_LINES_PER_IP lines: calling again drops its oldest call
   // (a reloaded page, or a script trying to tie up every line).
   const mine = (await db.prepare("SELECT * FROM line WHERE node > 0 AND ip_hash = ? AND token IS NOT NULL AND beat > ? ORDER BY since").bind(ih, t - BEAT_MS).all()).results;
@@ -893,6 +904,7 @@ async function dial(req, env, body = {}) {
       "WHERE node = ?4 AND (token IS NULL OR beat < ?5 OR since < ?6)"
     ).bind(token, t, ih, n, t - BEAT_MS, t - s.timeMin * 60_000, modem).run();
     if (r.meta.changes) {
+      await hit(env, "dialIp", ih).catch(() => {});
       if (prev) await logCallEnd(env, prev, Math.min(prev.beat, prev.since + s.timeMin * 60_000));   // a caller who dropped without hanging up
       await logEvent(env, "dial_ok", { node: n, modem });
       return json({ node: n, token, lines, timeMin: s.timeMin });
@@ -993,6 +1005,11 @@ async function newUser(req, env, body) {
   const first = (await db.prepare("SELECT COUNT(*) n FROM users").first()).n === 0;
   const waits = !first && s.requireValidation;
   if (!first) {
+    // A person dialing in and answering the sign-up questions takes a while; a script doesn't.
+    // Instead of refusing a quick one (and making a fast typist start over), the board just makes
+    // it wait: no account comes out sooner than 15 seconds after the call connected.
+    const early = line.since + 15_000 - t;
+    if (early > 0) await new Promise(r => setTimeout(r, early));
     if (waits) {
       const q = await db.prepare("SELECT COUNT(*) n FROM users WHERE level < ? AND banned = 0").bind(VALIDATED).first();
       if (q.n >= MAX_PENDING_USERS) throw new BoardError("The SysOp has a pile of new users to get through. New accounts are closed until the queue clears; call back tomorrow.", 429);
