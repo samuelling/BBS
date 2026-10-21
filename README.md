@@ -13,7 +13,8 @@ past its door.
 ## What's on the board
 
 **Main board**
-- Message bases: General Chat, Tech & Modems, For Sale / Wanted, Games & Doors, SysOp Feedback
+- Message bases: General Chat, Tech & Modems, For Sale / Wanted, Games & Doors, SysOp Feedback, megaZINE Submissions
+- **megaZINE Submissions** is how outsiders get work into [megaZINE](https://samuelling.github.io/megazine/): once the SysOp validates their account, they post one message per piece using the template in the base's first post. Each new submission notifies the SysOp right away (Slack/Telegram).
 - File areas: Utilities, Games, Text Files, ANSI & Graphics, Music, Miscellaneous
 - Private e-mail between users, a one-liner wall, last callers, who's online, user list
 - **Q-Slodem 4.51**, the board's own QModem-style terminal program: a blue startup screen with an

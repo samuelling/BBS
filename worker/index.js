@@ -156,6 +156,7 @@ async function slack(env, hook, title, message) {
   });
   if (!r.ok) throw new Error("Slack " + r.status + ": " + (await r.text().catch(() => "")).slice(0, 80));
 }
+const MEGAZINE_BASE = "megaZINE Submissions";
 async function notifyOn(env) {
   return !!((await config(env, "slack_hook")) || ((await config(env, "tg_chat")) && (await config(env, "tg_token"))));
 }
@@ -476,6 +477,10 @@ async function route(path, req, env) {
         db.prepare("UPDATE users SET posts = posts + 1 WHERE id = ?").bind(user.id),
         db.prepare("UPDATE line SET posted = posted + 1 WHERE node = ?").bind(line.node),
       ]);
+      // megaZINE submissions are rare and worth hearing about right away.
+      if (base.name === MEGAZINE_BASE && user.level < 255 && (await notifyOn(env))) {
+        try { await notifySend(env, "megaZINE submission", user.handle + ": " + subj); } catch (e) {}
+      }
       return json({ ok: true, post: { from_handle: user.handle, to_handle: to, subj, body: text, at: t } });
     }
 
