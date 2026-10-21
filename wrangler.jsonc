@@ -23,6 +23,12 @@
   // To use R2 instead: create a bucket, add it here, and set FILE_STORE to "r2".
   // "r2_buckets": [ { "binding": "FILES", "bucket_name": "septic-tankz-files" } ],
   // Every 15 minutes: send the SysOp any bundled notification that has come due.
+  // Flood protection: an approximate per-address limit on every API call, and a tighter one on uploads.
+  // (Exact limits on signups, dialing, bad logins and uploads live in the throttle table.)
+  "ratelimits": [
+    { "name": "RL_API", "namespace_id": "2455", "simple": { "limit": 240, "period": 60 } },
+    { "name": "RL_UPLOAD", "namespace_id": "2456", "simple": { "limit": 6, "period": 60 } }
+  ],
   "triggers": { "crons": ["*/15 * * * *"] },
   "vars": {
     "BOARD_NAME": "The Septic Tankz",

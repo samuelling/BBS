@@ -117,6 +117,21 @@ Because the board bundles Usurper, the board is distributed under the GNU GPL v2
 (`COPYING`). Zork (MIT) and Open Adventure (BSD-2-Clause) keep their own licenses, which
 are compatible.
 
+## Flood protection
+
+- Every API call: an approximate per-address limit (Cloudflare rate-limit binding: 240 a minute,
+  uploads 6 a minute).
+- Dialing: 30 calls per 10 minutes per address, and one address holds at most 2 lines (a third call
+  drops its oldest), so nobody can tie up every line.
+- Logins: 3 bad passwords and the board hangs up; 10 bad passwords in 15 minutes locks out that
+  address, and 10 against one account locks that account, for 15 minutes. The local console login
+  counts too.
+- Sign-ups: 3 per address per day, 15 per hour board-wide, and closed while 25 new users are
+  already waiting for validation.
+- Uploads: 15 per address per hour, at most 5 files or 100 MB per caller waiting for validation, on
+  top of the daily upload allowance and the storage quota.
+- Hitting a limit is logged (kind `throttle` in the events table).
+
 ## How it's built
 
 | Piece | What it is |

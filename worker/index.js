@@ -104,6 +104,12 @@ export default {
       if (url.pathname.startsWith("/dl/")) return await serveTicket(env, url.pathname.slice(4));
       if (url.pathname.startsWith("/api/")) {
         if (req.method !== "POST") throw new BoardError("Use POST.", 405);
+        const ip = req.headers.get("cf-connecting-ip") || "local";
+        const rl = url.pathname === "/api/upload" ? env.RL_UPLOAD : env.RL_API;
+        if (rl) {
+          const { success } = await rl.limit({ key: ip });
+          if (!success) throw new BoardError("Whoa, slow down. The board's modem can't keep up.", 429);
+        }
         return await route(url.pathname.slice(5), req, env);
       }
       return env.ASSETS.fetch(req);
@@ -116,6 +122,7 @@ export default {
   // Every 15 minutes: send the SysOp the bundled "things are waiting" notification if one is due.
   async scheduled(event, env, ctx) {
     ctx.waitUntil(notifyFlush(env).catch(e => console.error(e)));
+    ctx.waitUntil(sweepThrottle(env).catch(e => console.error(e)));
   },
 };
 
@@ -210,6 +217,43 @@ async function notifyFlush(env) {
   if ((await config(env, "notify_pending")) !== "1") return;
   if (now() - +(await config(env, "notify_last") || 0) < NOTIFY_GAP) return;
   await notifySummary(env);
+}
+
+// ---------------------------------------------------------------- flood protection
+// Two layers. A cheap, approximate per-address limit on every API call (Cloudflare's rate-limit
+// binding, if configured), and exact fixed-window counters in D1 for the things worth hammering:
+// signing up, dialing, guessing passwords and uploading.
+const LIMITS = {
+  dialIp:      { n: 30, win: 10 * 60_000, msg: "Too many calls from your number. Wait a few minutes and try again." },
+  signupIp:    { n: 3,  win: 24 * 3600_000, msg: "Too many new accounts from your phone number today." },
+  signupAll:   { n: 15, win: 3600_000, msg: "Lots of new users this hour. The SysOp's queue needs a breather; try again later." },
+  badLoginIp:  { n: 10, win: 15 * 60_000, msg: "Too many bad logins from your number. Wait 15 minutes." },
+  badLoginAcct:{ n: 10, win: 15 * 60_000, msg: "That account is locked for 15 minutes after too many bad passwords." },
+  uploadIp:    { n: 15, win: 3600_000, msg: "That's a lot of uploads for one hour. Try again later." },
+};
+const MAX_PENDING_USERS = 25;           // unvalidated accounts waiting on the SysOp, board-wide
+const MAX_PENDING_FILES_USER = 5;       // a caller's uploads waiting for validation
+const MAX_PENDING_BYTES_USER = 100 * 1048576;
+const MAX_LINES_PER_IP = 2;             // a third call from the same address bumps its oldest line
+
+function retryText(ms) { const m = Math.max(1, Math.ceil(ms / 60_000)); return m >= 90 ? Math.ceil(m / 60) + " hours" : m + " minute" + (m > 1 ? "s" : ""); }
+// Counts one hit. Throws (429) when the window's limit is passed.
+async function hit(env, kind, key, { peek = false } = {}) {
+  const L = LIMITS[kind], t = now(), k = kind + ":" + key;
+  let row;
+  if (peek) row = await env.DB.prepare("SELECT n, reset FROM throttle WHERE k = ? AND reset > ?").bind(k, t).first();
+  else row = await env.DB.prepare(
+    "INSERT INTO throttle (k, n, reset) VALUES (?1, 1, ?2 + ?3) ON CONFLICT (k) DO UPDATE SET " +
+    "n = CASE WHEN reset <= ?2 THEN 1 ELSE n + 1 END, reset = CASE WHEN reset <= ?2 THEN ?2 + ?3 ELSE reset END RETURNING n, reset"
+  ).bind(k, t, L.win).first();
+  if (!peek && row && row.n === L.n) await logEvent(env, "throttle", { value: row.n, modem: kind.slice(0, 12) });   // once, as the limit is reached
+  if (row && (peek ? row.n >= L.n : row.n > L.n)) {
+    throw new BoardError(L.msg + (L.win >= 3600_000 ? " (Try again in " + retryText(row.reset - t) + ".)" : ""), 429);
+  }
+  return row ? row.n : 0;
+}
+async function sweepThrottle(env) {
+  await env.DB.prepare("DELETE FROM throttle WHERE reset < ?").bind(now()).run();
 }
 
 // ---------------------------------------------------------------- helpers
@@ -833,6 +877,15 @@ async function dial(req, env, body = {}) {
   const nodes = Array.from({ length: lines }, (_, i) => i + 1);
   await db.prepare(`INSERT OR IGNORE INTO line (node) VALUES ${nodes.map(() => "(?)").join(",")}`).bind(...nodes).run();
   const token = randomHex(24), ih = await ipHash(env, req);
+  await hit(env, "dialIp", ih);
+  // One address can hold at most MAX_LINES_PER_IP lines: calling again drops its oldest call
+  // (a reloaded page, or a script trying to tie up every line).
+  const mine = (await db.prepare("SELECT * FROM line WHERE node > 0 AND ip_hash = ? AND token IS NOT NULL AND beat > ? ORDER BY since").bind(ih, t - BEAT_MS).all()).results;
+  if (lines > 1 && mine.length >= MAX_LINES_PER_IP) {
+    const old = mine[0];
+    await logCallEnd(env, old, t);
+    await hangupToken(env, old.token);
+  }
   for (const n of nodes) {
     const prev = await db.prepare("SELECT * FROM line WHERE node = ? AND token IS NOT NULL AND (beat < ? OR since < ?)").bind(n, t - BEAT_MS, t - s.timeMin * 60_000).first();
     const r = await db.prepare(
@@ -854,6 +907,8 @@ async function login(req, env, body) {
   if (line.user_id) throw new BoardError("Already logged in.");
   const db = env.DB;
   const handle = clean(body.handle, 30), pass = typeof body.password === "string" ? body.password.slice(0, 64) : "";
+  await hit(env, "badLoginIp", line.ip_hash, { peek: true });
+  await hit(env, "badLoginAcct", handle.toLowerCase(), { peek: true });
 
   // The secret entry: a special handle + password typed at the normal login prompt.
   if (!body.elite) {
@@ -869,6 +924,8 @@ async function login(req, env, body) {
   const u = await db.prepare("SELECT * FROM users WHERE handle = ?").bind(handle).first();
   const ok = u && timingSafeEq(await hashPass(pass, u.salt), u.pass_hash);
   if (!ok) {
+    await hit(env, "badLoginIp", line.ip_hash);
+    if (u) await hit(env, "badLoginAcct", handle.toLowerCase());
     const fails = line.fails + 1;
     if (fails >= 3 || body.elite) {
       await hangupToken(env, line.token);
@@ -897,9 +954,14 @@ async function login(req, env, body) {
 // The SysOp's local console: logs in at the board itself (node 0), so it never takes a phone line.
 async function localLogin(req, env, body) {
   const db = env.DB;
-  const u = await db.prepare("SELECT * FROM users WHERE handle = ?").bind(clean(body.handle, 30)).first();
+  const handle = clean(body.handle, 30), ih = await ipHash(env, req);
+  await hit(env, "badLoginIp", ih, { peek: true });
+  await hit(env, "badLoginAcct", handle.toLowerCase(), { peek: true });
+  const u = await db.prepare("SELECT * FROM users WHERE handle = ?").bind(handle).first();
   const pass = typeof body.password === "string" ? body.password.slice(0, 64) : "";
   if (!u || u.level < 255 || u.banned || !timingSafeEq(await hashPass(pass, u.salt), u.pass_hash)) {
+    await hit(env, "badLoginIp", ih);
+    if (u) await hit(env, "badLoginAcct", handle.toLowerCase());
     throw new BoardError("Local login is for the SysOp only.", 401);
   }
   const token = randomHex(24), t = now();
@@ -927,9 +989,17 @@ async function newUser(req, env, body) {
   if (await db.prepare("SELECT id FROM users WHERE handle = ?").bind(handle).first()) throw new BoardError("That handle is taken.");
   const t = now(), ih = line.ip_hash;
   const recent = await db.prepare("SELECT COUNT(*) n FROM users WHERE ip_hash = ? AND created_at > ?").bind(ih, t - 86_400_000).first();
-  if (recent.n >= 3) throw new BoardError("Too many new accounts from your phone number today.");
+  if (recent.n >= 3) throw new BoardError("Too many new accounts from your phone number today.", 429);
   const first = (await db.prepare("SELECT COUNT(*) n FROM users").first()).n === 0;
   const waits = !first && s.requireValidation;
+  if (!first) {
+    if (waits) {
+      const q = await db.prepare("SELECT COUNT(*) n FROM users WHERE level < ? AND banned = 0").bind(VALIDATED).first();
+      if (q.n >= MAX_PENDING_USERS) throw new BoardError("The SysOp has a pile of new users to get through. New accounts are closed until the queue clears; call back tomorrow.", 429);
+    }
+    await hit(env, "signupIp", ih);
+    await hit(env, "signupAll", "board");
+  }
   const salt = randomHex(16);
   const u = await db.prepare(
     "INSERT INTO users (handle, pass_hash, salt, location, level, elite, created_at, last_call, calls, credit_main, ip_hash, app) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?) RETURNING *"
@@ -979,6 +1049,10 @@ async function upload(req, env) {
 
   const sysop = user.level >= 255, t = now();
   if (!sysop) {
+    await hit(env, "uploadIp", line.ip_hash || "?");
+    const pend = await db.prepare("SELECT COUNT(*) n, COALESCE(SUM(size),0) b FROM files WHERE uploader_id = ? AND status = 'pending'").bind(user.id).first();
+    if (pend.n >= MAX_PENDING_FILES_USER) throw new BoardError(`You have ${pend.n} uploads waiting for the SysOp already. Wait until they're checked.`, 429);
+    if (pend.b + size > MAX_PENDING_BYTES_USER) throw new BoardError(`You have ${Math.round(pend.b / 1048576)} MB waiting for the SysOp already. Wait until it's checked.`, 429);
     const day = await db.prepare("SELECT COALESCE(SUM(size),0) b FROM files WHERE uploader_id = ? AND uploaded_at > ?").bind(user.id, t - 86_400_000).first();
     if (day.b + size > s.dailyUpload) throw new BoardError(`Daily upload limit is ${Math.round(s.dailyUpload / 1048576)} MB. Try tomorrow.`);
   }
