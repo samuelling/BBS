@@ -1,4 +1,4 @@
-# Usurper on The Septic Tankz
+# Usurper on MEGAzine BBS
 
 **USURPER** (c) 1993-2009 Jakob Dangarden. Ported to Free Pascal by Rick Parrish,
 bug fixes by Dan Zingaro. Usurper is free software under the GNU General Public
@@ -49,6 +49,20 @@ it wrote `MONSTER.DAT`; the table here is one such roll, made the same way.
 | Prison: waking up in a cell, demanding release, 3 escape attempts a day, the king's prisoner list; breaking someone out (gate guard, prison guards) | `PRISONC.PAS`, `PRISONC1.PAS`, `PRISONF.PAS` |
 | Bounty hunting: post a bounty (anonymously if you like), the Wanted list, the bounty paid to whoever kills the target | `BOUNTY.PAS`, `WANTEDSC.PAS` |
 | The Beggars Wall: sleep by the wall for 500 gold and find 1,000 in the bank the next day | `GAMEC.PAS`, `MAINT.PAS` |
+| **Phase 3:** Relations between characters (married, love, passion, friendship, trust, respect, normal, suspicion, anger, enemy, hate), relation news and mail, jealousy | `RELATION.PAS`, `RELATIO2.PAS` |
+| The Love Corner: approach somebody (looks, feelings both ways), change attitude, dates (hold hands, dinner, kiss) answered by the other player, marriage (both in love, level × 150,000 gold), divorce (the children stay with the spouse and get depressed), the gift shop (roses, chocolate, scorpions), Lydia the gossip-monger (spy, poison a relation), married couples, love history, children in the realm | `LOVERS.PAS`, `MAIL.PAS` |
+| Children: pregnancy (5 days), birth and naming, birthdays, upbringing costs, experience for raising them, leaving home at 18, the Royal Orphanage paid from the treasury | `CHILDREN.PAS`, `RELATION.PAS` (`Give_Birth`) |
+| Home Sweet Home: list children, the nursery (children's party, sending a child to the Royal Care-House), custody (share, abandon, orphanage), an evening at home with your spouse, sleeping at home (safe from attacks) | `HOME.PAS` |
+| The Supreme Being: level 100 meets it in the dungeons; the three doors (lantern, black sword, staffs), the cup, the final fight, the after-life choice (become a God, or rest in peace), the heroes list | `SUPREMEC.PAS`, `DUNGEONC.PAS`, `PLVSMON.PAS` |
+| The Gods: becoming immortal, god ranks and power, daily deeds, power from believers; the Divine Realm (status, immortals, believers, flocks, mortals, examine, comment to the mortals, holy news, visiting Manwe for rank, recruiting believers, poisoning relations, freeing prisoners) | `VARGODS.PAS`, `GODWORLD.PAS`, `INITGODS.PAS` |
+| The Temple / Altar of the Gods: worship and losing faith, sacrificing gold, desecrating altars, altars and god ranking, holy news | `TEMPLE.PAS` |
+| All the remaining spells, including the lasting ones checked every round (Freeze, Sleep, Web, Fear, Escape, Invisibility, Angel, Duplicate, Giant, Prismatic Cage, Summon Demon, Divination), Disease, Poison and Steal | `CAST.PAS`, `SPELLSU.PAS` |
+| Dungeon events: the wishing well, the old man/woman with a map (treasure, the worm cave), the wounded warrior (orc band), the treasure chest (gas, potions, scrolls: blessing, undead, the secret cave), the wounded traveller and his papers (delivered at the Magic Shop), the merchant (escort through three days of robbers, or robbery), the beggar, the witch-doctor, strangers (robbers, the burial-ground map) | `DUNGEVC.PAS`, `DUNGEV2.PAS`, `MAGIC.PAS` |
+| The Cave of Uman: High and Low, Tame the Bear, Indian Wrestling with its log | `UMAN.PAS` |
+| The Marketplace (classic mode): the Beggars Wall (alms, murder), the combat master (the 14 close-combat moves, disease immunity) | `MARKET.PAS` |
+| Sending gold and healing potions to an offline team-mate (Team Corner) | `SENDITEM.PAS` |
+| Bobs Beer Hut in the Shady Shops: the brawl (weapons, flying chairs, Ted the Bartender, dirty fights, the 14 moves) | `SHADY.PAS`, `BOBS.PAS`, `BRAWLC.PAS` |
+| The Gym: taking it over (free, or a gang fistfight), club cards (applications answered by the owners), lifting beer barrels and the Barrel Hall of Fame, tug-of-war between gangs, massage | `GYM.PAS`, `CHALLENG.PAS` |
 
 Settings follow Usurper's shipped defaults (`SAMPLES/USURPER.CFG` and the
 fallbacks in the code): CLASSIC game mode, 10,000 gold to start, 125 potions at
@@ -86,14 +100,27 @@ tomorrow.
 - Gang-war bouts are fought automatically, the way the original fought two
   computer-run characters; a member who isn't on the board comes in at full
   hitpoints. Bouts against royal guards and the king are played turn by turn.
+- Phase 3 (migration `0026_usurper3.sql`): everyone here is a real player, so dates, gifts, family
+  evenings, God recruitment and Gym applications wait for the other player to answer next time they
+  play, the way Usurper handled offline human players.
+- Left out to keep the board PG-13: the adult options (intimacy, "go to bed", the whorehouse, the Hall
+  of Dreams), abortion, the harassed-woman dungeon event, sniffing glue, the drug palace, steroids and
+  the Tox Utha't massage oil, and harming children (beating, poisoning, kidnapping). Children come from
+  a married couple's evening at home (with the original's baby rules: a man and a woman, one in three,
+  mothers 18-45 here instead of 14-45). An orphan the treasury can't pay for goes to a farm far away
+  instead of to the wolves.
+- Same-sex relationships and marriage are allowed (Usurper's AllowHomoRelations switch, on here).
+- Characters who finish the game leave it: their row is removed and the account can start a new
+  mortal or enter the Divine Realm as the God.
 - The castle, the Team Corner, quests and the Wanted list sit under
   **Challenges** on Main Street. New tables come from migration
   `0024_usurper2.sql`; existing characters keep working with sane defaults.
 
 ## Not converted yet (future work)
 
-Marriage and children, homes, the Gods and the Altar, the Supreme Being below
-level 100, the Marketplace and sending items, the Gym, wrestling, brawls,
-dungeon events and the Uman caves, NPC characters, the NEW (inventory) game
-mode with its item editor, haggling, the remaining spells, and the full Status
-and Relations screens.
+NPC characters; the NEW (inventory) game mode with its item editor, items and the Players Market and
+Alabat's store that need it; haggling; the Gym's dumb-bells (not finished in the original either);
+Bobs Beer Hut's beer drinking, dancing and thievery; Orbs bar, Groggo's magic services and the
+Alchemists' Heaven; Good Deeds and Evil Deeds from Main Street; the gods' child intervention and
+suicide; casting spells in player fights; the King's marriage bans and royal adoption; the full
+Status screen (STATUSC.PAS) and the Top-list screens of the Love Corner.

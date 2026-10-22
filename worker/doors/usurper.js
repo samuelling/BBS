@@ -1,4 +1,4 @@
-// USURPER for The Septic Tankz — the board-side game engine.
+// USURPER for MEGAzine BBS — the board-side game engine.
 //
 // USURPER (c) 1993-2009 Jakob Dangarden. Ported by Rick Parrish, bug fixes by Dan Zingaro.
 // This file is a conversion of parts of the Usurper source (https://github.com/rickparrish/Usurper)
@@ -29,6 +29,7 @@
 // Every rule and every die roll happens here; the terminal only shows what this returns.
 
 import { MONSTERS, WEAPONS, ARMORS, LEVELS } from "./usurper_data.js";
+import { maintain3, daily3, arrivals, phase3Action, orphanageDaily, view3, purposeDone3, supremeCharge, godAction, godName, dungeonEvent, LOC_HOME } from "./usurper3.js";
 
 const CFG = {
   town: "Valhalla", dungeon: "Drunghin",
@@ -83,16 +84,33 @@ const SPELL_UTTER = {
   [C.Magician]: ["Zazzaknah", "Mokkoshu", "Sabdrak", "Sekaramata", "Viloshmazza", "Zimmokoth", "Urpashke", "Egribegah", "Ynoskattarb", "Aivannaxievh", "Gnisuremvenodh", "Mattravidduzzievh"],
   [C.Sage]: ["Umannaghra", "Gonngexha", "Artizafisch", "Ishusabbhes", "Sheshnaxe", "Xoxxammeuh", "Reprusu", "Setuminahx", "Algesmoxhu", "Noitarudamin", "Attigribinnizsch", "Edujnomed"],
 };
-// The spells whose effects are converted so far: { kind, lo, spread, multi }.
+// What each spell does (CAST.PAS): { kind, lo, spread, multi }.
 //   heal: hit points back; dmg: damage to a monster (or all of them when multi); ward: armor bonus for
-//   the rest of the fight; hold: the target can't strike (Baptize / Sleep / Freeze).
+//   the rest of the fight; active: a lasting spell checked every round (Spell_Check), see activeSpells();
+//   disease / poison / steal: what the name says.
 const SPELLS = {
-  [C.Cleric]: { 1: { kind: "heal", lo: 4, spread: 3 }, 2: { kind: "ward", lo: 5 }, 3: { kind: "hold", keep: true }, 4: { kind: "heal", lo: 20, spread: 5 },
-    6: { kind: "dmg", lo: 20, spread: 11, multi: true }, 9: { kind: "dmg", lo: 80, spread: 10 }, 10: { kind: "heal", lo: 200, spread: 0 }, 12: { kind: "dmg", lo: 220, spread: 31 } },
-  [C.Magician]: { 1: { kind: "dmg", lo: 4, spread: 3 }, 2: { kind: "ward", lo: 4 }, 3: { kind: "hold", keep: true }, 5: { kind: "heal", lo: 60, spread: 20 },
-    6: { kind: "dmg", lo: 60, spread: 11 }, 8: { kind: "dmg", lo: 60, spread: 10 }, 10: { kind: "dmg", lo: 100, spread: 12 }, 11: { kind: "dmg", lo: 220, spread: 45 } },
-  [C.Sage]: { 1: { kind: "ward", lo: 3 }, 3: { kind: "hold", keep: false }, 5: { kind: "dmg", lo: 50, spread: 15, multi: true }, 6: { kind: "dmg", lo: 70, spread: 11 },
-    10: { kind: "dmg", lo: 130, spread: 11 }, 12: { kind: "dmg", lo: 240, spread: 50 } },
+  [C.Cleric]: { 1: { kind: "heal", lo: 4, spread: 3 }, 2: { kind: "ward", lo: 5 }, 3: { kind: "active", on: true }, 4: { kind: "heal", lo: 20, spread: 5, soul: true },
+    5: { kind: "disease", on: true }, 6: { kind: "dmg", lo: 20, spread: 11, multi: true }, 7: { kind: "active" }, 8: { kind: "active" }, 9: { kind: "dmg", lo: 80, spread: 10 },
+    10: { kind: "heal", lo: 200, spread: 0 }, 11: { kind: "active" }, 12: { kind: "dmg", lo: 220, spread: 31 } },
+  [C.Magician]: { 1: { kind: "dmg", lo: 4, spread: 3 }, 2: { kind: "ward", lo: 4 }, 3: { kind: "active", on: true }, 4: { kind: "active", on: true }, 5: { kind: "heal", lo: 60, spread: 20, active: true },
+    6: { kind: "dmg", lo: 60, spread: 11 }, 7: { kind: "active", on: true }, 8: { kind: "dmg", lo: 60, spread: 10 }, 9: { kind: "active", on: true }, 10: { kind: "dmg", lo: 100, spread: 12 },
+    11: { kind: "dmg", lo: 220, spread: 45 }, 12: { kind: "active" } },
+  [C.Sage]: { 1: { kind: "ward", lo: 3, on: true }, 2: { kind: "poison", on: true }, 3: { kind: "active", on: true }, 4: { kind: "active" }, 5: { kind: "dmg", lo: 50, spread: 15, multi: true },
+    6: { kind: "dmg", lo: 70, spread: 11 }, 7: { kind: "active", on: true }, 8: { kind: "active" }, 9: { kind: "steal", on: true }, 10: { kind: "dmg", lo: 130, spread: 11 },
+    11: { kind: "active" }, 12: { kind: "dmg", lo: 240, spread: 50 } },
+};
+// The words when a monster-affecting spell takes hold (CAST.PAS)
+const SPELL_HIT = {
+  [C.Cleric]: { 3: " suddenly freezes!", 5: "A disease struck %!" },
+  [C.Magician]: { 3: " suddenly goes to sleep!", 4: "A Magic Web suddenly surrounds %!", 7: " screams in fear from your presence!", 9: "A Magic Cage suddenly lowers over %!" },
+  [C.Sage]: { 1: " seems to be blinded!", 2: " seems to be poisoned!", 3: " suddenly freezes!", 7: " kindly asks you to stop the fight!" },
+};
+const SPELL_DMG = {
+  [C.Cleric]: { 6: [" screams in pain as the detonation goes off!", " is hurt by the barrage of magic darts!"], 9: [" is hit by a Lightning Bolt!", " is struck by Lightning!"], 12: [" is hit by a Divine Lightning Bolt!", " is hit by a Holy Lightning Bolt!"] },
+  [C.Magician]: { 1: [" staggers under the impact from your missiles!", " is hit by several magic arrows!"], 6: [" is hit by a Fireball!", " is engulfed by a Fireball!"], 8: [" is hit by a Lightning Bolt!", " is struck by Lightning!"],
+    10: [" is severely burned in a Wall of fire!", " is engulfed in flames!"], 11: [" suffers from the KISS OF DEATH!", " is touched by the LIPS OF DEATH!"] },
+  [C.Sage]: { 5: [" screams under a beam of incoming fire!", " is struck by hellfire!"], 6: [" starts to hurt himself!", " is filled with agony!"], 10: ["s energy is drained!", "s vitality is drained!"],
+    12: [" staggers under the Force of Death!", " is struggling with the Force of Death!"] },
 };
 const MON_SPELLS = ["Cause Damage", "Snakes", "Cyclone", "Summon Undead", "Vice of Death", "Drain Life"];
 const MON_SPELL_COST = [10, 20, 25, 30, 35, 40];
@@ -169,6 +187,7 @@ function maintain(p) {
   }
   p.ageplus = (p.ageplus || 0) + days;
   if (p.ageplus > 20 && random(4) === 0) { p.age++; p.ageplus = 0; }
+  maintain3(p, days);
   return true;
 }
 
@@ -188,6 +207,7 @@ function view(p) {
     town: CFG.town, dungeon: CFG.dungeon,
     team: p.team || "", tfights: p.tfights ?? CFG.teamFights, king: !!p.king, prisonDays: p.prisonDays || 0, escapes: p.escapes ?? CFG.prisonEscapes,
     royquests: p.royquests || 0, siege: p.siege ? p.siege.stage : null,
+    ...view3(p),
   };
 }
 
@@ -200,7 +220,7 @@ function normalAttack(a) {      // classic mode
 }
 function normalDefence(d) {     // armor absorbs abase * apow; spell wards add to it
   let yy = d.apow > 1 ? Math.round(CFG.abase * d.apow) : 0;
-  yy += d.ward || 0;
+  yy += (d.ward || 0) + (d.wardRound || 0);
   if (SPELLCASTER.has(d.cls) && d.mana < d.maxmana) d.mana++;     // casters regain a little mana each blow
   return Math.max(0, yy);
 }
@@ -325,7 +345,7 @@ function startDungeonFight(p, out) {
   }
   p.fight = { mode: "dng", dl, mons, toDeath: false };
   p.monk = false;
-  p.ward = 0;
+  p.ward = 0; p.wardRound = 0;
   const m = mons[0];
   if (m.ph) out.push("", MON + m.name + T + ": " + TALK + m.ph);
 }
@@ -401,6 +421,7 @@ function dungeonRound(p, f, opts, out, ctx) {
   let mon = f.mons[opts.target] && f.mons[opts.target].hps > 0 ? f.mons[opts.target] : alive[0];
   // monster_charge (mode 1)
   for (const m of f.mons) {
+    if (f.purpose === "supreme") { supremeCharge(p, f, m, out); continue; }   // PLVSMON.PAS mode 3
     if (m.str < 10) m.str = 10;
     const w = m.wpow || 0;
     m.punch = w + random(w) + Math.floor(m.str / 3);
@@ -424,11 +445,14 @@ function dungeonRound(p, f, opts, out, ctx) {
   }
   for (const m of aliveMons(f)) {
     if (m.poisoned) { const x = random(5) + 1; out.push(MON + m.name + T + " suffers from poison!"); m.hps -= x; if (m.hps < 1) monsterDied(p, f, m, out); }
+    if (m.disease && m.hps > 0) { const x = random(14) + 1; out.push(MON + m.name + T + " suffers from a disease!"); m.hps -= x; if (m.hps < 1) monsterDied(p, f, m, out); }
   }
+  activeSpells(p, f, out);   // take into account long lasting spells
   // monster attacks
   for (const m of f.mons) {
     if (m.hps < 1 || p.hps < 1) continue;
     if (m.hold > 0) { out.push(MON + m.name + T + " can't move!"); if (!m.holdKeep || random(2) === 0) m.hold = 0; continue; }
+    if (f.active && Object.keys(f.active).length && m.punch === 0 && !m.spells) { out.push(MON + m.name + T + " can't move!"); continue; }
     if (monsterCasts(p, f, m, out)) { if (p.hps < 1) { playerDiesInDungeon(p, m.name, out, ctx); return; } continue; }
     if (m.punch < 1) { out.push(MON + m.name + MAG + " missed you completely!"); continue; }
     out.push(MON + m.name + RED + " hits You for " + hitOutput(m.punch) + " damage!");
@@ -442,7 +466,7 @@ function dungeonRound(p, f, opts, out, ctx) {
 
 function endDungeonFight(p, out) {
   p.fight = null;
-  p.ward = 0;
+  p.ward = 0; p.wardRound = 0;
   out.push("", HI + "You have cleared the area.");
   if (p.healing < CFG.maxHeals && p.hps > 0) {
     p.monk = true;     // DUNGEONC.PAS: a monk offers potions after the fight
@@ -578,7 +602,7 @@ export async function handle(action, body, ctx) {
   const finish = async (p, extra = {}) => {
     if (p) await save(db, p, t);
     for (const fn of c.later) await fn();
-    return { out, p: p ? view(p) : null, fight: p ? fightView(p) : null, monk: !!(p && p.monk), ...extra };
+    return { out, p: p ? view(p) : null, fight: p ? fightView(p) : null, monk: !!(p && p.monk), event: p && p.event ? p.event.ui : null, ...extra };
   };
 
   // The Daily News and the character list don't need a character.
@@ -596,6 +620,7 @@ export async function handle(action, body, ctx) {
     return { rows };
   }
 
+  if (action.startsWith("god/")) return godAction(action, body, ctx);   // the Immortals (GODWORLD.PAS)
   let row = await loadRow(db, user.id);
   if (action === "create") {
     if (row) ctx.fail("You already have a character.");
@@ -610,20 +635,28 @@ export async function handle(action, body, ctx) {
     return finish(p);
   }
   if (!row) {
-    if (action === "enter") return { p: null, out: [] };
+    if (action === "enter") return { p: null, out: [], god: await godName(db, user.id) };
     ctx.fail("Create a character first.");
   }
   const p = parse(row);
   p.name = nm(user.handle) || p.name;   // follow the board handle
+  if (p.completed) {   // the game is won; only the choice of the after-life is left (SUPREMEC.PAS)
+    if (action === "enter") return { p: view(p), out: [], completed: true };
+    if (action !== "supreme/after") ctx.fail("Your time on Earth has come to an end.");
+  }
   if (maintain(p)) await dailyRealm(p, c);
   if (p.location === LOC.prison && action !== "enter" && !action.startsWith("prison/") && action !== "status" && action !== "news" && action !== "list") {
     ctx.fail("You are locked up in the Royal Prison!");
   }
   if (p.hps < 1 && p.allowed && action !== "enter") p.hps = p.maxhps;   // died while away but still allowed in (as "enter" does)
+  if (!p.allowed && action !== "enter" && action !== "supreme/after" && action !== "status") ctx.fail("You may return tomorrow and regain some of your lost pride...");
   const realm = await realmAction(action, body, p, c, ctx, out, finish);
   if (realm) return realm;
+  const p3 = await phase3Action(action, body, p, c, ctx, out, finish);
+  if (p3) return p3;
 
   if (action === "enter") {
+    for (const fn of c.later.splice(0)) await fn();   // the day's mail (births, wages ...) arrives before it's read
     const mails = (await db.prepare("SELECT id, head, body, at FROM usurper_mail WHERE to_id = ? AND seen = 0 ORDER BY id LIMIT 30").bind(p.id).all()).results;
     if (mails.length) await db.prepare("UPDATE usurper_mail SET seen = 1 WHERE to_id = ? AND id <= ?").bind(p.id, mails[mails.length - 1].id).run();
     const wasAt = p.location;
@@ -637,10 +670,11 @@ export async function handle(action, body, ctx) {
       return finish(p, { mail: mails, wasAt, prison: true });
     }
     p.location = 0;                       // everyone wakes up in town
+    p.event = null; p.bear = null; p.wrestle = null;
     // A fight left hanging by a dropped carrier: dungeon fights are lost, loot defaults to taking it.
     if (p.fight && p.fight.mode === "loot") await takePurse(p, p.fight, c, true);
     p.fight = null; p.monk = false; p.siege = null;
-    return finish(p, { mail: mails, wasAt, kingNews: await kingLine(db) });
+    return finish(p, { mail: mails, wasAt, kingNews: await kingLine(db), ...(await arrivals(p, c)), god: await godName(db, user.id) });
   }
   if (!p.allowed) ctx.fail("You may return tomorrow and regain some of your lost pride...");
 
@@ -668,7 +702,9 @@ export async function handle(action, body, ctx) {
     case "dng/look": {
       needNoFight();
       p.monk = false;
+      if (p.level > 99) return finish(p, { supreme: true });   // DUNGEONC.PAS: level 100 meets the Supreme Being
       if (p.fights <= 0) { out.push(RED + "Sorry, you have no fights left for today."); return finish(p); }
+      if (dungeonEvent(p, out)) return finish(p);   // DUNGEVC.PAS: something else happens first
       startDungeonFight(p, out);
       return finish(p);
     }
@@ -682,6 +718,7 @@ export async function handle(action, body, ctx) {
         else if (f.purpose && !p.fight) await purposeDone(p, f, c, out, "won");
         return finish(p, { dead: p.hps < 1 });
       };
+      if ((cmd === "R" || cmd === "B") && (f.purpose === "supreme" || f.noEscape)) { out.push(RED + "There is no escape from the Supreme Being!"); return finish(p); }
       if (cmd === "R") {
         if (random(2) === 0) { out.push(T + "You have escaped battle!", HI + "You managed to escape!"); p.fight = null; return (await special("fled")) || finish(p); }
         out.push(T + "The monster won't let you escape!");
@@ -1071,40 +1108,95 @@ async function pickpocket(p, v, steal, out, c) {
   return {};
 }
 
-// Spells in the dungeon. Returns false if nothing was cast.
+// Spells in the dungeon (CAST.PAS Cast_Spell, place 1). Returns false if nothing was cast.
 function castSpell(p, f, n, opts, out) {
   if (!SPELLCASTER.has(p.cls)) { out.push(T + "You don't know any spells."); return false; }
   if (!(n >= 1 && n <= 12) || p.level < LEVEL_NEEDED[n - 1]) { out.push(T + "You don't know that spell."); return false; }
   const sp = (SPELLS[p.cls] || {})[n];
-  if (!sp) { out.push(T + "That spell is lost to time on this board."); return false; }
+  f.active = f.active || {};
+  if (f.active[n]) { out.push(T + "Spell already active!"); return false; }
   const cost = n * 10;
-  if (p.mana < cost) { out.push(T + "You don't have enough mana."); return false; }
+  if (p.mana < cost) { out.push(RED + "Not enough mana!"); return false; }
   p.mana -= cost;
   out.push(PLY + p.name + T + " utters " + TALK + "'" + SPELL_UTTER[p.cls][n - 1] + "'" + T + " (" + SPELL_NAMES[p.cls][n - 1] + ")");
-  const targets = sp.multi ? aliveMons(f) : [f.mons[opts.target] && f.mons[opts.target].hps > 0 ? f.mons[opts.target] : aliveMons(f)[0]];
+  // the monsters' magic resistance: each may shrug the spell off
+  const resisted = new Set();
+  for (const m of aliveMons(f)) {
+    const r = m.res, res = r <= 10 ? 20 : r <= 20 ? 18 : r <= 30 ? 16 : r <= 40 ? 14 : r <= 50 ? 12 : r <= 60 ? 10 : r <= 70 ? 8 : r <= 80 ? 6 : r <= 90 ? 4 : 2;
+    if (random(res) === 0) resisted.add(m);
+  }
+  const target = f.mons[opts.target] && f.mons[opts.target].hps > 0 ? f.mons[opts.target] : aliveMons(f)[0];
+  const onTarget = sp.on || sp.kind === "dmg";
+  if (onTarget && !sp.multi && resisted.has(target)) { out.push("|13The spell doesn't affect " + MON + target.name + "|13!"); return true; }
+  const hit = (SPELL_HIT[p.cls] || {})[n];
+  const say = () => { if (hit) out.push(T + (hit.includes("%") ? hit.replace("%", MON + target.name + T) : MON + target.name + T + hit)); };
   if (sp.kind === "heal") {
-    const x = sp.lo + random(sp.spread);
-    p.hps = Math.min(p.maxhps, p.hps + x);
-    out.push(T + "You regain some hitpoints!");
+    p.hps = Math.min(p.maxhps, p.hps + sp.lo + random(sp.spread));
+    out.push(T + (n === 4 && p.cls === C.Cleric ? "You feel stronger!" : "You regain some hitpoints!"));
+    if (sp.soul) { if (p.dark > 0) p.dark = Math.max(0, p.dark - 15); else p.chiv += 15; }
+    if (sp.active) f.active[n] = { on: target ? f.mons.indexOf(target) : 0 };
   } else if (sp.kind === "ward") {
     p.ward = (p.ward || 0) + sp.lo;
-    out.push(T + "You feel protected!");
+    if (hit) say(); else out.push(p.cls === C.Magician ? "|04You feel an aura of steel around you!" : "|04You feel protected!");
+  } else if (sp.kind === "poison") { target.poisoned = true; out.push("|04" + target.name + RED + hit); }
+  else if (sp.kind === "disease") {
+    let m = target;
+    if (m.disease) m = aliveMons(f).find(x => !x.disease) || target;
+    m.disease = true; out.push(T + "A disease struck " + MON + m.name + T + "!");
+  } else if (sp.kind === "steal") {
+    const g = random(10000);
+    p.gold += g;
+    out.push(PLY + "You" + T + " manage to steal " + GOLD + cs(g) + T + " " + money(g) + " from " + MON + target.name + T + "!");
+  } else if (sp.kind === "active") {
+    f.active[n] = { on: f.mons.indexOf(target) };
+    if (hit) say();
+    else if (p.cls === C.Cleric && n === 7) out.push(PLY + "You" + T + " disappear out of sight!");
+    else if (p.cls === C.Cleric && n === 8) out.push(T + "An Angel suddenly arrives!");
+    else if (p.cls === C.Cleric && n === 11) out.push(T + "You feel protected!");
+    else if (p.cls === C.Sage && n === 4) { out.push(T + "A " + PLY + "duplicate" + T + " of " + PLY + "you" + T + " suddenly arrives!"); p.hps -= 25; }
+    else if (p.cls === C.Sage && n === 8) out.push(PLY + "You" + T + " suddenly transform into a GIANT!");
+    else out.push(T + "A " + MON + "Demon" + T + " suddenly appears!");
   } else {
-    for (const m of targets) {
-      const res = m.res <= 10 ? 20 : m.res <= 20 ? 18 : m.res <= 30 ? 16 : m.res <= 40 ? 14 : 12;
-      if (random(res) === 0) { out.push("|13The spell doesn't affect " + MON + m.name + "|13!"); continue; }
-      if (sp.kind === "hold") {
-        m.hold = 1; m.holdKeep = sp.keep;
-        out.push(T + m.name + (p.cls === C.Magician ? " suddenly goes to sleep!" : " suddenly freezes!"));
-      } else {
-        const dmg = sp.lo + random(sp.spread);
-        out.push(T + "The spell hits the " + MON + m.name + T + " for " + WHITE + cs(dmg) + T + " damage!");
-        m.hps -= dmg;
-        if (m.hps < 1) monsterDied(p, f, m, out);
-      }
+    const dmg = sp.lo + random(sp.spread), lines = SPELL_DMG[p.cls][n] || [" is hit!", " is hit!"];
+    for (const m of sp.multi ? aliveMons(f) : [target]) {
+      if (resisted.has(m)) { out.push("|13The spell doesn't affect " + MON + m.name + "|13!"); continue; }
+      out.push(MON + m.name + T + pick(lines) + " (" + WHITE + cs(dmg) + T + ")");
+      m.hps -= dmg;
+      if (m.hps < 1) monsterDied(p, f, m, out);
     }
   }
   return true;
+}
+// Spell_Check: the lasting spells work once a round, on the monster you are fighting.
+function activeSpells(p, f, out) {
+  const act = f.active || {};
+  p.wardRound = 0;
+  const live = Object.keys(act);
+  if (!live.length) return;
+  const pickMon = i => (f.mons[i] && f.mons[i].hps > 0 ? f.mons[i] : aliveMons(f)[0]);
+  const hurt = (m, x, line) => { if (!m) return; out.push(line); m.hps -= x; if (m.hps < 1) monsterDied(p, f, m, out); };
+  for (const k of live) {
+    const n = +k, a = act[k], m = pickMon(a.on);
+    if (p.cls === C.Cleric) {
+      if (n === 3) { if (m) m.punch = 0; if (random(2) === 0) delete act[k]; }
+      if (n === 7) p.wardRound += random(15) + 11;
+      if (n === 8) hurt(m, 100, PLY + "The Angel" + T + " hits " + MON + (m && m.name) + T + " hard!");
+      if (n === 11) { p.chiv += 50; p.dark = Math.max(0, p.dark - 50); if (m) m.punch = Math.max(0, (m.punch || 0) - 110); delete act[k]; }
+    } else if (p.cls === C.Magician) {
+      if (n === 3) { if (m) m.punch = 0; if (random(2) === 0) delete act[k]; }
+      if (n === 4) { if (m) m.punch = 0; delete act[k]; }
+      if (n === 5) p.wardRound += random(10) + 3;
+      if (n === 7 && m) m.punch = 0;
+      if (n === 9) { p.wardRound += 20; delete act[k]; }
+      if (n === 12) hurt(m, 200 + random(101), MON + "The Demon" + T + " claws " + MON + (m && m.name) + T + " extremely Hard!");
+    } else if (p.cls === C.Sage) {
+      if (n === 3) { if (m) m.punch = 0; delete act[k]; }
+      if (n === 4) hurt(m, normalAttack(p), PLY + "Your Duplicate" + T + " hits " + MON + (m && m.name) + T + "!");
+      if (n === 7 && m) m.punch = 0;
+      if (n === 8) { out.push(PLY + "Your" + T + " Transformation protects you!"); p.wardRound += 50; }
+      if (n === 11) hurt(m, 100 + random(21), MON + "The Demon" + T + " claws " + MON + (m && m.name) + T + " extremely hard!");
+    }
+  }
 }
 
 // =====================================================================================
@@ -1163,6 +1255,7 @@ async function kingDaily(c, k) {
       await mail(c.db, c.t, g.id, "No Salary!", "The Royal Treasury couldn't pay your salary of " + cs(pay) + " gold.", "The " + kingString(k.sex) + " is broke!");
     }
   }
+  await orphanageDaily(c, k, days);   // the Royal Orphanage (CHILDREN.PAS)
   // quests nobody finished in time are taken back (KMAINT.PAS)
   const qs = (await c.db.prepare("SELECT id, data, occupier FROM usurper_quests WHERE done = 0 AND occupier IS NOT NULL").all()).results;
   for (const r of qs) {
@@ -1228,6 +1321,7 @@ async function dailyRealm(p, c) {
       }
     }
   }
+  await daily3(p, c, days);
 }
 
 // ---------------------------------------------------------------- shared lookups
@@ -1248,7 +1342,7 @@ async function findPlayer(db, name, exceptId) {
 }
 async function loadOther(c, id) {
   const v = parse(await loadRow(c.db, id));
-  if (v && maintain(v)) await dailyRealm(v, c);
+  if (v && maintain(v)) { await dailyRealm(v, c); await save(c.db, v, c.t); }
   return v;
 }
 async function isGuard(c, id) { const k = await loadKing(c); return k.guards.some(g => g.id === id); }
@@ -1524,6 +1618,7 @@ async function prisonGuards(p, c, out) {
 // A special monster fight ended (moat, prison gate or royal quest). how = won | died | fled | begged
 async function purposeDone(p, f, c, out, how) {
   p.monk = false;
+  if (f.purpose === "supreme" || f.purpose === "event") return purposeDone3(p, f, c, out, how);
   if (f.purpose === "moat") {
     const k = await loadKing(c);
     const left = how === "won" ? 0 : f.mons.filter(m => m.hps > 0).length;
@@ -1630,7 +1725,7 @@ async function realmAction(action, body, p, c, ctx, out, finish) {
   switch (action) {
     case "realm/find": {   // name search used by the screens that ask "who?"
       const list = await findPlayer(db, body.name, body.self ? 0 : p.id);
-      return finish(p, { found: list.map(q => ({ id: q.id, name: q.name, level: q.level, race: RACES[q.race], cls: CLASSES[q.cls], team: q.team || "", prison: q.location === LOC.prison, king: !!q.king })) });
+      return finish(p, { found: list.map(q => ({ id: q.id, name: q.name, level: q.level, race: RACES[q.race], cls: CLASSES[q.cls], team: q.team || "", prison: q.location === LOC.prison, king: !!q.king, sex: q.sex })) });
     }
     // ---- the Team Corner (TCORNER.PAS)
     case "team/info": {
@@ -2142,3 +2237,10 @@ async function realmAction(action, body, p, c, ctx, out, finish) {
   }
   return null;
 }
+
+// Shared with the phase-3 module (worker/doors/usurper3.js).
+export {
+  CFG, LOC, T, HI, TALK, PLY, MON, ITEM, GOLD, WHITE, HEAD, RED, MAG, KC, TC, RACES, CLASSES, C, R,
+  random, pick, cs, nm, clean, him, he, his, He, money, today, dayDiff,
+  loadRow, parse, save, news, mail, onlineIds, findPlayer, loadOther, loadKing, saveKing, kingString,
+};
