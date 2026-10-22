@@ -13,7 +13,7 @@ import * as tradewipes from "./tradewipes.js";
 import * as barren from "./barren.js";
 
 const WORLDS = { usurper, reddrain, tradewipes, barren };
-const SOLO = new Set(["zork1", "zork2", "zork3", "advent", "wumpus", "trek", "hammurabi", "lander", "escape"]);
+const SOLO = new Set(["zork1", "zork2", "zork3", "advent", "wumpus", "trek", "hammurabi", "lander", "escape", "chairquest"]);
 const MAX_SAVE = 60000;
 
 export async function doorRoute(path, body, ctx) {

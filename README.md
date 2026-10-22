@@ -102,6 +102,11 @@ and dice run on the board's server.
   `scripts/build_advent.sh` rebuilds it.
 - SAVE and RESTORE (RESUME in Colossal Cave) keep one saved game per caller on the board.
 
+**From the collective.** ChairQuest by Matt Crump (github.com/CrumpLab/ChairQuest): survive a
+year as department chair. `scripts/import_chairquest.py` copies his game (scenarios, events,
+endings, rules) verbatim from his page and adds a terminal front end; rerun it to pick up his
+updates. His real-time advanced sandbox opens on his site.
+
 **BASIC classics**, new code following the 1970s rules: Hunt the Wumpus (after Gregory
 Yob), Deep Space Patrol (after Mike Mayfield's 1971 Star Trek), Hammurabi (after Doug
 Dyment and David Ahl) and Lunar Lander (Jim Storer's 1969 physics). High scores are kept
