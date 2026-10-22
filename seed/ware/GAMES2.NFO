@@ -1,0 +1,70 @@
+==============================================================================
+       G A M E   P A C K   2   ::   more classics, legal and free
+==============================================================================
+ Every one of these was made free by the people who own it: released as
+ freeware, put in the public domain, or given away by the author. All the
+ files come straight from the official homes listed below, untouched.
+ All downloads are FREE (no ratio hit).
+
+------------------------------------------------------------------------------
+ SCUMMVM ADVENTURES          SCUMMVM-WIN.ZIP / SCUMMVM-MAC.DMG + the games
+------------------------------------------------------------------------------
+ ScummVM (GNU GPL) runs the old point-and-click adventures on modern Macs
+ and PCs. Get ScummVM for your machine, unzip a game into its own folder,
+ then in ScummVM click Add Game... and pick that folder. These are the
+ freeware games ScummVM itself hands out, by permission of their owners:
+
+   BASS-CD.ZIP ......... Beneath a Steel Sky (1994), the full CD talkie
+   LURE.ZIP ............ Lure of the Temptress (1992)
+   FOTAQ.ZIP ........... Flight of the Amazon Queen (1995), talkie
+   DRASCULA.ZIP ........ Drascula: The Vampire Strikes Back (1996)
+   DRASCULA-AUDIO.ZIP .. Drascula's CD music, unzip it into the same folder
+   DREAMWEB.ZIP ........ DreamWeb (1994), cyberpunk noir. Grown-up themes.
+   NIPPON.ZIP .......... Nippon Safes, Inc. (1992)
+   SOLTYS.ZIP .......... Soltys (1995)
+   SFINX.ZIP ........... Sfinx (1997)
+   GODTHUND.ZIP ........ God of Thunder (1993), Norse action-adventure
+   MYSTHOUS.ZIP ........ Mystery House (1980), Sierra's very first game
+
+------------------------------------------------------------------------------
+ ZZT                          ZZT32.ZIP + ZETA-WIN.ZIP / ZETA-MAC.ZIP
+------------------------------------------------------------------------------
+ Tim Sweeney's ZZT (1991), the game that started Epic MegaGames, with all
+ four original worlds. Epic re-licensed it in 1997 so it can be passed
+ around free. Zeta (MIT license) runs it on modern machines: unzip both,
+ then open ZZT.EXE with Zeta (or drop the ZZT folder on it).
+ From the Museum of ZZT (museumofzzt.com) and zeta.asie.pl.
+
+------------------------------------------------------------------------------
+ DOS CLASSICS (run them in DOSBox Staging, see TOOLS.NFO)
+------------------------------------------------------------------------------
+ SCORCH15.ZIP ..... Scorched Earth 1.5 (1995), "The Mother of All Games".
+                    Wendell Hicken gives it away free on whicken.com (you
+                    can tip him there for the Totally Scorched collection).
+
+------------------------------------------------------------------------------
+ WINDOWS-ONLY PORTS
+------------------------------------------------------------------------------
+ ABUSE-WIN.ZIP .... Abuse (1996), Crack dot Com's run-and-gun. The code and
+                    data were put in the public domain; this port is by
+                    Xenoveritas (github.com/Xenoveritas/abuse). The original
+                    sound effects aren't included (see the port's readme).
+ LIERO.ZIP ........ Liero 1.36 (1998), the worm deathmatch, with OpenLiero.
+                    Freeware by Joosa Riekkinen, now under the WTFPL.
+                    From github.com/gliptic/liero.
+
+------------------------------------------------------------------------------
+ MAC USERS
+------------------------------------------------------------------------------
+ The first time you open ScummVM or Zeta, macOS may refuse. Right-click the
+ app, choose Open, then Open again (or System Settings > Privacy & Security
+ > Open Anyway).
+
+ Credits: Revolution Software (Beneath a Steel Sky, Lure of the
+ Temptress), Interactive Binary Illusions (Flight of the Amazon Queen),
+ Alcachofa Soft (Drascula), Creative Reality (DreamWeb), Euclidea (Nippon
+ Safes), LK Avalon (Soltys, Sfinx), Ron Davis / Adept Software (God of
+ Thunder), Sierra On-Line (Mystery House), Tim Sweeney / Epic (ZZT),
+ Wendell Hicken (Scorched Earth), Crack dot Com (Abuse), Joosa Riekkinen
+ (Liero). And the ScummVM team, who made all of this playable again.
+==============================================================================

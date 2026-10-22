@@ -202,6 +202,13 @@ The on-line viewer emulates an 80-column ANSI screen and shows art in the IBM VG
 (Web437_IBM_VGA_8x16 from VileR's Ultimate Oldschool PC Font Pack, CC BY-SA 4.0,
 public/fonts/).
 
+**Game Pack 2.** More classics their owners made free, linked from official homes (see
+GAMES2.NFO). ScummVM (GPL, Windows and Mac) with the freeware adventures it distributes: Beneath
+a Steel Sky, Lure of the Temptress, Flight of the Amazon Queen, Drascula, DreamWeb, Nippon Safes,
+Soltys, Sfinx, God of Thunder and Mystery House. Tim Sweeney's ZZT 3.2 from the Museum of ZZT
+(free since 1997) with the Zeta player; Scorched Earth 1.5, given away by Wendell Hicken; and
+Windows ports of Abuse (public domain) and Liero (freeware, WTFPL).
+
 **Bundled files.** `ext_url` can also be `asset:/files/NAME`, a file shipped with the board in
 `public/files/`. The Orders of Magnitude demos (Demoseed 4K and 40K, from samuelling/DemoVoyager)
 live there; Big Apple Sam's screen savers link to its GitHub release.
