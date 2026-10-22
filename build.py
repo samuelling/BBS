@@ -82,7 +82,8 @@ doc = lambda api: ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
 (ROOT / "index.html").write_text(doc(cfg.get("api_base", "")))
 # Door files (story files, wasm) for the GitHub Pages copy, which loads them from its own site.
 import shutil
-if (ROOT / "public" / "doors").exists():
-    shutil.rmtree(ROOT / "doors", ignore_errors=True)
-    shutil.copytree(ROOT / "public" / "doors", ROOT / "doors")
+for d in ("doors", "fonts"):
+    if (ROOT / "public" / d).exists():
+        shutil.rmtree(ROOT / d, ignore_errors=True)
+        shutil.copytree(ROOT / "public" / d, ROOT / d)
 print("built public/index.html and index.html (api_base=%r)" % cfg.get("api_base", ""))

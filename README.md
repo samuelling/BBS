@@ -188,6 +188,20 @@ scene: Purple Motion and Skaven of Future Crew, Necros, Captain, Jester, Jogeir 
 and more, linked from The Mod Archive and credited in MUSIC.NFO. No MIDI on purpose: most BBS-era
 MIDI files were unlicensed covers of pop songs.
 
+**Era files.** More linked files, streamed from their official homes:
+- Utilities: SyncTERM (call the boards in 716LIST.TXT), DOSBox Staging (runs the demos),
+  and the Moebius and PabloDraw ANSI editors, for Windows and Mac. See TOOLS.NFO.
+- ANSI & Graphics: six original ACiD, iCE and Fire art packs (1994-96) and 14 single
+  pieces you can view on-line, all from 16colo.rs. See ANSI.NFO.
+- Demos: eight classic PC demos from scene.org (Second Reality, Unreal, Crystal Dream 2,
+  HeartQuake, Verses, Stars, Dope, Juice) in the Cesspool's Demos & Intros, with three of
+  them in Miscellaneous. DEMOS.NFO says how to run them in DOSBox.
+- Text Files: nine BBS-culture t-files from textfiles.com. See TFILES.NFO.
+
+The on-line viewer emulates an 80-column ANSI screen and shows art in the IBM VGA font
+(Web437_IBM_VGA_8x16 from VileR's Ultimate Oldschool PC Font Pack, CC BY-SA 4.0,
+public/fonts/).
+
 **Bundled files.** `ext_url` can also be `asset:/files/NAME`, a file shipped with the board in
 `public/files/`. The Orders of Magnitude demos (Demoseed 4K and 40K, from samuelling/DemoVoyager)
 live there; Big Apple Sam's screen savers link to its GitHub release.

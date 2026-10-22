@@ -1190,40 +1190,88 @@ function decodeBytes(b64) {
   try { return new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
   catch (e) { let s = ""; for (const x of bytes) s += x < 128 ? String.fromCharCode(x) : CP437[x - 128]; return s; }
 }
-// Turn ANSI escape colors into pipe codes; drop everything else.
-function ansiToPipes(text) {
-  const map = [0, 4, 2, 6, 1, 5, 3, 7];
-  let bold = false, f = 7, outS = "";
-  const re = /\x1b\[([\d;]*)([A-Za-z])/g;
-  let last = 0, m;
-  while ((m = re.exec(text))) {
-    outS += text.slice(last, m.index).replace(/\|/g, "!").replace(/[{}]/g, ch => ch === "{" ? "(" : ")");
-    last = re.lastIndex;
-    const params = m[1] ? m[1].split(";").map(Number) : [0];
-    if (m[2] === "m") {
-      for (const p of params) {
-        if (p === 0) { bold = false; f = 7; }
-        else if (p === 1) bold = true;
-        else if (p >= 30 && p <= 37) f = map[p - 30];
-        else if (p >= 40 && p <= 47) outS += "|" + String(16 + map[p - 40]);
-      }
-      if (params.includes(0)) outS += "|16";
-      outS += "|" + String((bold ? 8 : 0) + f).padStart(2, "0");
-    } else if (m[2] === "C") outS += " ".repeat(Math.min(80, params[0] || 1));
+// Render ANSI art (or plain text) the way ANSI.SYS would: an 80-column screen with cursor
+// movement, colors and auto-wrap, then turn each screen row into a line of pipe codes.
+function ansiToRows(text) {
+  const W = 80, MAXROWS = 3000, map = [0, 4, 2, 6, 1, 5, 3, 7];
+  const rows = [];
+  let r = 0, c = 0, fg = 7, bold = false, bg = 0, saved = [0, 0], wrapPending = false;
+  const put = ch => {
+    if (wrapPending) { r++; c = 0; wrapPending = false; }
+    if (r >= MAXROWS) return;
+    while (rows.length <= r) rows.push([]);
+    rows[r][c] = { ch, f: (bold ? 8 : 0) + fg, b: bg };
+    if (c === W - 1) wrapPending = true; else c++;
+  };
+  const end = text.indexOf("\x1a");            // SAUCE record and anything after it isn't art
+  if (end >= 0) text = text.slice(0, end);
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "\x1b" && text[i + 1] === "[") {
+      let j = i + 2, params = "";
+      while (j < text.length && /[\d;?=]/.test(text[j])) params += text[j++];
+      const cmd = text[j]; i = j;
+      const ps = params.replace(/[?=]/g, "").split(";").map(x => (x === "" ? NaN : +x));
+      const n = Number.isNaN(ps[0]) ? 1 : Math.max(1, ps[0]);
+      if (cmd === "m") {
+        for (const x of (params === "" ? [0] : ps.map(v => (Number.isNaN(v) ? 0 : v)))) {
+          if (x === 0) { fg = 7; bold = false; bg = 0; }
+          else if (x === 1) bold = true;
+          else if (x === 22) bold = false;
+          else if (x >= 30 && x <= 37) fg = map[x - 30];
+          else if (x === 39) fg = 7;
+          else if (x >= 40 && x <= 47) bg = map[x - 40];
+          else if (x === 49) bg = 0;
+        }
+      } else if (cmd === "C") { c = Math.min(W - 1, c + n); wrapPending = false; }
+      else if (cmd === "D") { c = Math.max(0, c - n); wrapPending = false; }
+      else if (cmd === "A") { r = Math.max(0, r - n); wrapPending = false; }
+      else if (cmd === "B") { r = Math.min(MAXROWS - 1, r + n); wrapPending = false; }
+      else if (cmd === "H" || cmd === "f") {
+        r = Math.min(MAXROWS - 1, (Number.isNaN(ps[0]) ? 1 : ps[0]) - 1); c = Math.min(W - 1, (Number.isNaN(ps[1]) ? 1 : ps[1]) - 1);
+        r = Math.max(0, r); c = Math.max(0, c); wrapPending = false;
+      } else if (cmd === "s") saved = [r, c];
+      else if (cmd === "u") { [r, c] = saved; wrapPending = false; }
+      // J (clear), K (erase line), h/l (modes) and anything else: nothing to draw.
+      continue;
+    }
+    if (ch === "\r") { c = 0; wrapPending = false; continue; }
+    if (ch === "\n") { r++; c = 0; wrapPending = false; continue; }
+    if (ch === "\t") { const to = Math.min(W, (Math.floor(c / 8) + 1) * 8); while (c < to && !wrapPending) put(" "); continue; }
+    if (ch < " " || ch === "\x7f") continue;
+    put(ch);
   }
-  outS += text.slice(last).replace(/\|/g, "!").replace(/[{}]/g, ch => ch === "{" ? "(" : ")");
-  return outS.replace(/\x1a[\s\S]*$/, "").replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "").replace(/\t/g, "    ");
+  // Rows of cells -> pipe-code strings. "|" and "{x}" would be read as codes, so swap them.
+  const two = n => String(n).padStart(2, "0");
+  return rows.map(row => {
+    let last = row.length;
+    while (last > 0 && (!row[last - 1] || (row[last - 1].ch === " " && row[last - 1].b === 0))) last--;
+    let out = "", cf = -1, cb = -1;
+    for (let k = 0; k < last; k++) {
+      const cell = row[k] || { ch: " ", f: 7, b: 0 };
+      if (cell.b !== cb) { out += "|" + (16 + cell.b); cb = cell.b; }
+      if (cell.f !== cf) { out += "|" + two(cell.f); cf = cell.f; }
+      out += cell.ch === "|" ? "¦" : cell.ch === "{" ? "(" : cell.ch === "}" ? ")" : cell.ch;
+    }
+    return out + "|16|07";
+  });
 }
 async function viewFile(f) {
   act("Reading " + f.filename);
   const r = await api("view", { id: f.id });
-  const text = ansiToPipes(decodeBytes(r.b64));
-  const lines = [];
-  for (const l of text.replace(/\r\n?/g, "\n").split("\n")) {
-    let rest = l;
-    do { lines.push(rest.slice(0, 80)); rest = rest.slice(80); } while (rest.length);
-  }
-  await pager("|15 " + f.filename + "\n" + rule(8), lines.map(l => "|07" + l + "|16"), 20);
+  const lines = ansiToRows(decodeBytes(r.b64));
+  while (lines.length && lines[lines.length - 1] === "|16|07") lines.pop();
+  // Art needs the real PC font: the board's VT323 has no block characters, and fallback fonts
+  // are a different width, so blocks drift out of line. Switch for the viewer, then back.
+  const art = /\.(ans|ice|diz|nfo|asc)$/i.test(f.filename) || lines.some(l => /[\u2580-\u259f]/.test(l));
+  if (art) await artMode(true);
+  try { await pager("|15 " + f.filename + "\n" + rule(8), lines, art ? 24 : 20); }
+  finally { if (art) await artMode(false); }
+}
+async function artMode(on) {
+  if (on && document.fonts) { try { await document.fonts.load('16px "IBM VGA"'); } catch (e) {} }
+  cls(); await out("");
+  scr.classList.toggle("art", on); measure(); fit();
 }
 async function download(f, side) {
   act("Downloading " + f.filename);

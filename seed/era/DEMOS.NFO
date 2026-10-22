@@ -1,0 +1,35 @@
+==============================================================================
+              D E M O S   ::   the PC demoscene, 1992 - 1995
+==============================================================================
+
+ Demos were real-time music videos made by teenagers in Finland, Norway,
+ Sweden and everywhere else, showing off what a 386 or 486 could do in
+ code. Groups competed at parties like Assembly and The Party, then
+ released them for free, and boards carried them everywhere.
+
+ SECOND REALITY ...... Future Crew, Assembly '93. THE demo.
+ UNREAL .............. Future Crew, 1992.
+ CRYSTAL DREAM 2 ..... Triton, 1993.
+ HEARTQUAKE .......... Iguana, Assembly '94.
+ VERSES .............. EMF, Assembly '94.
+ STARS ............... NoooN, "Stars: Wonders of the World", 1995.
+ DOPE ................ Complex, 1995.
+ JUICE ............... Psychic Link, 1995.
+
+ HOW TO WATCH THEM (DOSBox Staging is in Utilities)
+   1. Make a folder, say  demos , and unzip each demo into its own
+      folder inside it.
+   2. Start DOSBox Staging and type:
+         mount c ~/demos        (Windows: mount c C:\demos)
+         c:
+         cd 2nd_real            (whatever the folder is called)
+         dir                    (find the .EXE)
+         second                 (run it)
+   3. Most of these want a Gravis Ultrasound or a Sound Blaster. DOSBox
+      Staging emulates both; when a demo asks, pick GUS (port 240, IRQ 5,
+      DMA 3) or Sound Blaster (port 220, IRQ 7, DMA 1). If it stutters,
+      press Ctrl+F12 a few times to give it more speed.
+
+ Every demo is linked from scene.org, the scene's own archive, exactly as
+ the groups released them. Credits stay with the groups.
+==============================================================================

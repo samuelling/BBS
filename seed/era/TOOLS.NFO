@@ -1,0 +1,38 @@
+==============================================================================
+        T H E   S E P T I C   T A N K Z   ::   T O O L S   O F   T H E
+                  T R A D E   (rebuilt for modern Macs and PCs)
+==============================================================================
+
+ All free, all open source or freeware, all straight from their makers.
+ None of them cost you ratio. Grab the one for your machine.
+
+ SYNCTERM  (SYNCTRM-WIN.ZIP / SYNCTRM-MAC.ZIP)
+   A real BBS terminal, from the folks behind Synchronet. Telnet to the
+   boards that are still answering (see 716LIST.TXT in Text Files) and get
+   proper ANSI, CP437 and even modem-speed emulation. The closest thing to
+   your old Telix or QModem.
+
+ DOSBOX STAGING  (DOSBOX-WIN.ZIP / DOSBOX-MAC.DMG)
+   A PC from 1993 in a window. Runs the demos in DEMOS.NFO, the old DOS
+   shareware you still have on floppies, and anything else that wants a
+   Sound Blaster and 640K. GNU GPL.
+
+ MOEBIUS  (MOEBIUS-WIN.EXE / MOEBIUS-MAC.DMG)
+   A modern ANSI editor from Blocktronics: draw in CP437 blocks with the
+   16 colors, half-blocks and all, and save real .ANS files. Draw yourself
+   a logo and upload it.
+
+ PABLODRAW  (PABLODRW-WIN.MSI / PABLODRW-MAC.DMG)
+   The other great ANSI editor, by Curtis Wensley. Draws ANSI, ASCII and
+   RIPscrip, opens almost every art format from the era, and lets several
+   artists draw on one canvas at once, like the old joint pieces. MIT
+   license.
+
+ WHAT GOES WITH WHAT
+   Art packs in ANSI & Graphics .... view on-line here, or open in Moebius
+                                     or PabloDraw
+   Demos in Miscellaneous .......... DOSBox Staging (see DEMOS.NFO)
+   Calling other boards ............ SyncTERM + 716LIST.TXT
+
+ MAC USERS: the first time, right-click the app and choose Open.
+==============================================================================

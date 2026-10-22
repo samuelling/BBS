@@ -9,6 +9,9 @@ import { doorRoute } from "./doors/index.js";
 const BEAT_MS = 75_000;          // a line is dropped this long after its last heartbeat
 const TICKET_MS = 10 * 60_000;   // download links last 10 minutes
 const TEXT_EXT = /\.(txt|nfo|diz|asc|ans|doc|1st|me|faq|lst|bbs)$/i;
+// Biggest file the on-line viewer will show: ANSI art runs larger than plain text.
+const viewCap = name => /\.ans$/i.test(name) ? 262144 : 65536;
+const isViewable = f => TEXT_EXT.test(f.filename) && f.size <= viewCap(f.filename);
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -460,14 +463,19 @@ async function route(path, req, env) {
       const rows = (await db.prepare(
         "SELECT id, filename, descr, size, uploader, uploaded_at, downloads, free, ctype FROM files WHERE area_id = ? AND status = 'approved' ORDER BY uploaded_at DESC, id DESC LIMIT 200"
       ).bind(area.id).all()).results;
-      return json({ area, rows: rows.map(f => ({ ...f, viewable: TEXT_EXT.test(f.filename) && f.size <= 65536 })) });
+      return json({ area, rows: rows.map(f => ({ ...f, viewable: isViewable(f) })) });
     }
     case "view": {
       const f = await fileForUser(env, line, user, +body.id);
-      if (!(TEXT_EXT.test(f.filename) && f.size <= 65536)) throw new BoardError("That file can't be viewed on-line.");
+      if (!isViewable(f)) throw new BoardError("That file can't be viewed on-line.");
       let bytes;
       if (f.content != null) bytes = new TextEncoder().encode(f.content);
-      else {
+      else if (f.ext_url) {
+        // A linked file: fetch it from its home for the viewer (capped, same as stored files).
+        const r = await fetch(f.ext_url, { headers: { "user-agent": "SepticTankz-BBS" } });
+        if (!r.ok) throw new BoardError("The file's home server didn't answer (" + r.status + "). Try again later.", 502);
+        bytes = new Uint8Array(await r.arrayBuffer()).subarray(0, viewCap(f.filename));
+      } else {
         bytes = await storage(env).bytes(f.r2_key);
         if (!bytes) throw new BoardError("File is missing from the drive.", 404);
       }
