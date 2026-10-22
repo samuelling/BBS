@@ -753,6 +753,11 @@ async function route(path, req, env) {
       ]);
       return json({ ok: true, word, pass });
     }
+    case "sysop/enroll": {
+      requireSysop(user);
+      if (body.on !== undefined) await setConfig(env, "open_enrollment", body.on ? "1" : "0");
+      return json({ on: (await config(env, "open_enrollment")) === "1" });
+    }
     case "sysop/notify": {
       requireSysop(user);
       if (body.op === "token") {
@@ -1011,7 +1016,9 @@ async function newUser(req, env, body) {
   const recent = await db.prepare("SELECT COUNT(*) n FROM users WHERE ip_hash = ? AND created_at > ?").bind(ih, t - 86_400_000).first();
   if (recent.n >= 3) throw new BoardError("Too many new accounts from your phone number today.", 429);
   const first = (await db.prepare("SELECT COUNT(*) n FROM users").first()).n === 0;
-  const waits = !first && s.requireValidation;
+  // Open enrollment (a SysOp switch) lets new callers in without waiting for validation.
+  const openEnroll = (await config(env, "open_enrollment")) === "1";
+  const waits = !first && s.requireValidation && !openEnroll;
   if (!first) {
     // A person dialing in and answering the sign-up questions takes a while; a script doesn't.
     // Instead of refusing a quick one (and making a fast typist start over), the board just makes
@@ -1035,6 +1042,8 @@ async function newUser(req, env, body) {
   ]);
   if (first) env.later(setConfig(env, "board_url", new URL(req.url).origin));
   if (waits) env.later(notifyQueue(env));
+  else if (!first) env.later(notifySend(env, "New caller: " + u.handle,
+    (u.location ? "From " + u.location + ". " : "") + "Signed up on node " + line.node + (openEnroll ? " (open enrollment, already validated)." : ".")));
   return json({ user: publicUser(u), sysop: first, pendingValidation: waits, unread: 0, timeLeft: timeLeft(env, line) });
 }
 

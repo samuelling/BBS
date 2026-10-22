@@ -1774,7 +1774,7 @@ async function answerPage(rows) {
 async function sysopConsole() {
   while (true) {
     act("Main menu");
-    const [q, ap, nu, pg, nt] = await Promise.all([api("sysop/queue"), api("sysop/apps"), api("sysop/newusers"), api("chat/pages"), api("sysop/notify")]);
+    const [q, ap, nu, pg, nt, en] = await Promise.all([api("sysop/queue"), api("sysop/apps"), api("sysop/newusers"), api("chat/pages"), api("sysop/notify"), api("sysop/enroll")]);
     showPages(pg.rows.length);
     cls();
     await out("|14 SysOp Console\n" + rule(6) +
@@ -1787,9 +1787,10 @@ async function sysopConsole() {
       "|07   {W} Who's online / kick a caller\n" +
       "|07   {L} Phone lines              |08" + LINES + " line" + (LINES > 1 ? "s" : "") + " installed\n" +
       "|07   {O} Notify me (Slack/Telegram) " + (nt.slackOn || nt.tgOn ? "|10on" : "|08off") + "\n" +
+      "|07   {E} Open enrollment          " + (en.on ? "|10ON|08, new users skip validation" : "|08off, new users wait for you") + "\n" +
       "|07   {Q} Back\n\n" +
       "|08 Usage stats dashboard: |07" + ((API || location.origin) + "/sysop/").replace(/^https?:\/\//, "") + "\n\n|08Command: |07");
-    const k = await readKey("PNVAUSWLOQ");
+    const k = await readKey("PNVAUSWLOEQ");
     if (k === "Q") return;
     if (k === "P") await guard(() => answerPage(pg.rows));
     if (k === "N") await guard(newUsersAdmin);
@@ -1800,6 +1801,11 @@ async function sysopConsole() {
     if (k === "W") await guard(kickAdmin);
     if (k === "L") await guard(phoneLinesAdmin);
     if (k === "O") await guard(notifyAdmin);
+    if (k === "E") {
+      const r = await api("sysop/enroll", { on: !en.on });
+      await out("\n" + (r.on ? "|10Open enrollment is ON.|07 New callers get full access right away (you still get a ping)." : "|14Open enrollment is OFF.|07 New callers wait for your validation again.") + "\n");
+      await anyKey();
+    }
   }
 }
 // SysOp notifications: a Slack channel (incoming webhook) and/or a Telegram bot.

@@ -51,6 +51,8 @@ past its door.
 - Change the secret entry handle and password
 - Kick a caller off a line
 - Phone lines: run a 1- to 8-line board. Callers who find line 1 busy roll over to the next free line
+- Open enrollment: a switch (`{E}`) that lets new callers in without validation (they get the
+  starting credit right away). It's on for now; the SysOp still gets a Slack/Telegram ping per sign-up.
 - Notify me: posts to a Slack channel (incoming webhook) and/or a Telegram bot when new users,
   uploads or Cesspool applications are waiting (the first right away, the rest bundled at most hourly
   by a 15-minute cron), and when a caller pages while you're off the board. The console walks you
