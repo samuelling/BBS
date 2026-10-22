@@ -1156,16 +1156,18 @@ async function listFiles(area, side) {
       await out("|15 {" + (i + 1) + "} |14" + pad(f.filename, 24) + "|07" + lpad(K(f.size), 9) + " |08" + d8(f.uploaded_at) + lpad(f.downloads, 5) + "  " +
         (f.free ? "|10FREE |07" : "|07") + esc(f.descr).slice(0, f.free ? 22 : 27) + "\n");
     }
-    await out("\n|07{U} Upload here" + (pages > 1 ? "  {N} Next page  {P} Prev page" : "") + "  {Q} Back\n|08Pick a file: |07");
-    const k = await readKey("123456789".slice(0, slice.length) + "UQ" + (pages > 1 ? "NP" : ""));
+    const pics = files.filter(f => f.image);
+    await out("\n|07{U} Upload here" + (pics.length ? "  {G} Picture viewer (" + pics.length + ")" : "") + (pages > 1 ? "  {N} Next page  {P} Prev page" : "") + "  {Q} Back\n|08Pick a file: |07");
+    const k = await readKey("123456789".slice(0, slice.length) + "UQ" + (pages > 1 ? "NP" : "") + (pics.length ? "G" : ""));
     if (k === "Q") return;
+    if (k === "G") { await pictureViewer(pics, 0); continue; }
     if (k === "N") { page = (page + 1) % pages; continue; }
     if (k === "P") { page = (page + pages - 1) % pages; continue; }
     if (k === "U") { await guard(() => uploadFile(area, side)); continue; }
-    await guard(() => fileMenu(slice[+k - 1], side));
+    await guard(() => fileMenu(slice[+k - 1], side, files));
   }
 }
-async function fileMenu(f, side) {
+async function fileMenu(f, side, all) {
   const elite = side === "elite";
   const credit = elite ? S.user.credit_elite : S.user.credit_main;
   const cost = f.free || S.user.sysop ? 0 : f.size;
@@ -1177,10 +1179,78 @@ async function fileMenu(f, side) {
     "|07 Downloads .... |15" + f.downloads + "\n" +
     "|07 Cost ......... " + (cost ? "|15" + K(cost) + "|07 of your |15" + K(credit) + "|07 credit" : "|10FREE") + "\n" +
     "|07 Est. time .... |15" + xferTime(f.size) + "|08 at " + MODEM.label + "\n\n" +
-    "|07{D} Download" + (f.viewable ? "  {V} View on-line (free)" : "") + "  {Q} Back |15");
-  const k = await readKey("DQ" + (f.viewable ? "V" : ""));
+    "|07{D} Download" + (f.viewable || f.image ? "  {V} " + (f.image ? "Look at it (free)" : "View on-line (free)") : "") + "  {Q} Back |15");
+  const k = await readKey("DQ" + (f.viewable || f.image ? "V" : ""));
+  if (k === "V" && f.image) { const pics = (all || [f]).filter(x => x.image); return pictureViewer(pics, Math.max(0, pics.indexOf(f))); }
   if (k === "V") return viewFile(f);
   if (k === "D") return download(f, side);
+}
+
+// ---------------------------------------------------------------- picture viewer
+// The board stays a BBS, except here: pictures open in a modern pop-up you can flip through
+// (arrow keys, swipe, the dots, or the buttons). Esc, X or a click outside closes it.
+const pixUrls = new Map();   // file id -> inline link (good for 30 minutes)
+async function pixUrl(f) {
+  const hit = pixUrls.get(f.id);
+  if (hit && Date.now() - hit.at < 25 * 60_000) return hit.url;
+  const r = await api("imgurl", { id: f.id });
+  const url = API + r.url;
+  pixUrls.set(f.id, { url, at: Date.now() });
+  return url;
+}
+function pictureViewer(files, start) {
+  if (!files.length) return Promise.resolve();
+  act("Looking at pictures");
+  let el = document.getElementById("pix");
+  if (!el) {
+    el = document.createElement("div"); el.id = "pix"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Picture viewer");
+    el.innerHTML = '<div class="count"></div><button class="x" aria-label="Close">&#x2715;</button>' +
+      '<button class="prev" aria-label="Previous">&#x2039;</button><button class="next" aria-label="Next">&#x203A;</button>' +
+      '<figure><img alt=""><figcaption></figcaption></figure><div class="strip"></div>';
+    document.body.appendChild(el);
+  }
+  const img = el.querySelector("img"), cap = el.querySelector("figcaption"), count = el.querySelector(".count"), strip = el.querySelector(".strip");
+  let i = start, done, seq = 0;
+  strip.innerHTML = files.length > 1 ? files.map((_, n) => '<i data-n="' + n + '"></i>').join("") : "";
+  const show = async () => {
+    const f = files[i], my = ++seq;
+    count.textContent = files.length > 1 ? (i + 1) + " / " + files.length : "";
+    cap.innerHTML = ""; const b = document.createElement("b"); b.textContent = f.filename; cap.appendChild(b);
+    const sub = document.createElement("span"); sub.textContent = "  " + (f.descr || "") + "  ·  uploaded by " + f.uploader;
+    cap.appendChild(document.createElement("br")); cap.appendChild(sub);
+    strip.querySelectorAll("i").forEach((d, n) => d.classList.toggle("cur", n === i));
+    img.classList.add("loading");
+    try {
+      const url = await pixUrl(f);
+      if (my !== seq) return;
+      img.onload = () => { if (my === seq) img.classList.remove("loading"); };
+      img.onerror = () => { if (my === seq) { img.classList.remove("loading"); sub.textContent = "  Couldn't load this one."; sub.className = "err"; } };
+      img.src = url; img.alt = f.descr || f.filename;
+      // Warm up the neighbors so flipping feels instant.
+      for (const n of [i + 1, i - 1]) { const g = files[(n + files.length) % files.length]; if (g !== f) pixUrl(g).then(u => { const pre = new Image(); pre.src = u; }).catch(() => {}); }
+    } catch (e) { if (my === seq) { img.classList.remove("loading"); sub.textContent = "  " + (e.message || "Line noise."); } }
+  };
+  const go = d => { i = (i + d + files.length) % files.length; show(); };
+  const close = () => { el.classList.remove("on"); document.removeEventListener("keydown", onKey, true); img.removeAttribute("src"); done(); };
+  const onKey = e => {
+    e.stopPropagation(); e.preventDefault();
+    if (e.key === "ArrowRight" || e.key === " " || e.key === "n" || e.key === "N") go(1);
+    else if (e.key === "ArrowLeft" || e.key === "p" || e.key === "P") go(-1);
+    else if (e.key === "Escape" || e.key === "q" || e.key === "Q" || e.key === "Enter") close();
+  };
+  el.querySelector(".x").onclick = close;
+  el.querySelector(".prev").onclick = e => { e.stopPropagation(); go(-1); };
+  el.querySelector(".next").onclick = e => { e.stopPropagation(); go(1); };
+  el.querySelector(".prev").style.display = el.querySelector(".next").style.display = files.length > 1 ? "" : "none";
+  strip.onclick = e => { const n = e.target.dataset && e.target.dataset.n; if (n !== undefined) { e.stopPropagation(); i = +n; show(); } };
+  el.onclick = e => { if (e.target === el) close(); };
+  let x0 = null;
+  el.ontouchstart = e => { x0 = e.touches[0].clientX; };
+  el.ontouchend = e => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); };
+  document.addEventListener("keydown", onKey, true);
+  el.classList.add("on");
+  show();
+  return track((res, rej, entry) => { done = res; entry.cancel = () => { el.classList.remove("on"); document.removeEventListener("keydown", onKey, true); }; });
 }
 
 // CP437 for the upper half, so ANSI art from the era renders right.

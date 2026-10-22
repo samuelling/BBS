@@ -187,6 +187,11 @@ and changing one setting.
 | `r2` | An R2 bucket (uncomment `r2_buckets`) | 10 GB free, then pay as you go. Needs the R2 subscription. 100 MB per file. |
 | `http` | Your own file server | Whatever your disk holds. 100 MB per file through Cloudflare. |
 
+**Image Board.** A file area for pictures (GIF, JPG, PNG, WebP, BMP). Pictures open in a modern
+pop-up viewer over the terminal, the one place the board breaks character: flip through with the
+arrow keys, a swipe or the dots, Esc to close. Looking is free; downloading costs credit as usual.
+Uploads go through validation like any file. Seeded with public-domain NASA photos.
+
 **Linked files.** A file row can carry an `ext_url` instead of stored bytes: the board streams it
 from that address through its own `/dl/` link, so it looks like any other download and takes no
 storage. The Game Pack in the Games area (Tyrian 2000 via OpenTyrian, Freedoom + Woof!, One Must

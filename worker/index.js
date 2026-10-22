@@ -12,6 +12,11 @@ const TEXT_EXT = /\.(txt|nfo|diz|asc|ans|doc|1st|me|faq|lst|bbs)$/i;
 // Biggest file the on-line viewer will show: ANSI art runs larger than plain text.
 const viewCap = name => /\.ans$/i.test(name) ? 262144 : 65536;
 const isViewable = f => TEXT_EXT.test(f.filename) && f.size <= viewCap(f.filename);
+// Pictures the image viewer shows on-line (raster formats only: an SVG could carry script).
+const IMG_EXT = /\.(gif|jpe?g|png|webp|bmp)$/i;
+const IMG_TYPES = { gif: "image/gif", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", bmp: "image/bmp" };
+const isImage = f => IMG_EXT.test(f.filename) && f.size <= 20 * 1048576;
+const imageType = name => IMG_TYPES[String(name).split(".").pop().toLowerCase()] || "application/octet-stream";
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -104,7 +109,7 @@ export default {
     const url = new URL(req.url);
     if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
     try {
-      if (url.pathname.startsWith("/dl/")) return await serveTicket(env, url.pathname.slice(4));
+      if (url.pathname.startsWith("/dl/")) return await serveTicket(env, url.pathname.slice(4), url.searchParams.get("inline") === "1");
       if (url.pathname.startsWith("/api/")) {
         if (req.method !== "POST") throw new BoardError("Use POST.", 405);
         const ip = req.headers.get("cf-connecting-ip") || "local";
@@ -463,7 +468,7 @@ async function route(path, req, env) {
       const rows = (await db.prepare(
         "SELECT id, filename, descr, size, uploader, uploaded_at, downloads, free, ctype FROM files WHERE area_id = ? AND status = 'approved' ORDER BY uploaded_at DESC, id DESC LIMIT 200"
       ).bind(area.id).all()).results;
-      return json({ area, rows: rows.map(f => ({ ...f, viewable: isViewable(f) })) });
+      return json({ area, rows: rows.map(f => ({ ...f, viewable: isViewable(f), image: isImage(f) })) });
     }
     case "view": {
       const f = await fileForUser(env, line, user, +body.id);
@@ -482,6 +487,14 @@ async function route(path, req, env) {
       let bin = "";
       for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode(...bytes.subarray(i, i + 8192));
       return json({ filename: f.filename, b64: btoa(bin) });
+    }
+    // Looking at a picture on-line is free, like reading a text file: a short-lived inline link.
+    case "imgurl": {
+      const f = await fileForUser(env, line, user, +body.id);
+      if (!isImage(f)) throw new BoardError("That isn't a picture the viewer can show.");
+      const ticket = randomHex(20);
+      await db.prepare("INSERT INTO tickets (id, file_id, user_id, expires) VALUES (?, ?, ?, ?)").bind(ticket, f.id, user.id, now() + 30 * 60_000).run();
+      return json({ url: "/dl/" + ticket + "?inline=1" });
     }
     case "download": {
       requireValidated(user);
@@ -1094,7 +1107,7 @@ async function upload(req, env) {
   const dupe = await db.prepare("SELECT f.id FROM files f JOIN areas a ON a.id = f.area_id WHERE a.side = ? AND f.filename = ?").bind(area.side, name).first();
   if (dupe) throw new BoardError("A file by that name already exists. Rename it and try again.");
 
-  const ctype = TEXT_EXT.test(name) ? "text/plain" : "application/octet-stream";
+  const ctype = TEXT_EXT.test(name) ? "text/plain" : IMG_EXT.test(name) ? imageType(name) : "application/octet-stream";
   const row = await db.prepare(
     "INSERT INTO files (area_id, filename, descr, size, uploader_id, uploader, uploaded_at, status, ctype) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id"
   ).bind(area.id, name, descr, size, user.id, user.handle, t, sysop ? "approved" : "pending", ctype).first();
@@ -1115,7 +1128,7 @@ async function upload(req, env) {
   return json({ ok: true, filename: name, size, pending: !sysop });
 }
 
-async function serveTicket(env, id) {
+async function serveTicket(env, id, inline) {
   const t = now();
   const tk = await env.DB.prepare("UPDATE tickets SET uses = uses + 1 WHERE id = ? AND expires > ? AND uses < 5 RETURNING *").bind(id, t).first();
   if (!tk) return new Response("This download link has expired. Call back in and download it again.\n", { status: 410, headers: { "content-type": "text/plain", ...CORS } });
@@ -1128,6 +1141,13 @@ async function serveTicket(env, id) {
     "cache-control": "private, no-store",
     "x-content-type-options": "nosniff",
   };
+  if (inline && isImage(f)) {
+    // Shown in the board's picture viewer: the type comes from the extension, and nothing in it can run.
+    headers["content-type"] = imageType(f.filename);
+    headers["content-disposition"] = `inline; filename="${f.filename}"`;
+    headers["content-security-policy"] = "default-src 'none'; sandbox";
+    headers["cache-control"] = "private, max-age=1800";
+  }
   if (f.content != null) return new Response(f.content, { headers });
   if (f.ext_url) {
     // A linked file: stream it from its official home through the board's own link.

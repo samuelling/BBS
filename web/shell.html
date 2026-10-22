@@ -124,6 +124,31 @@ body.full #keys { padding: 6px; background: #000; }
 #keys button b { color: var(--c14); font-weight: normal; margin-right: 6px; }
 #keys button:active, #keys button:focus-visible { background: var(--c1); outline: none; }
 @media (prefers-reduced-motion: reduce) { .cur { animation: none; } }
+
+/* Picture viewer: a modern pop-up over the terminal (the one place the board breaks character). */
+#pix { position: fixed; inset: 0; z-index: 50; display: none; flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(8, 8, 12, .86); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; color: #eee; user-select: none; touch-action: pan-y; }
+#pix.on { display: flex; animation: pixin .18s ease-out; }
+@keyframes pixin { from { opacity: 0; } to { opacity: 1; } }
+#pix figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: 94vw; }
+#pix img { max-width: 92vw; max-height: 74vh; border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.6); background: #111;
+  image-rendering: auto; transition: opacity .15s; }
+#pix img.loading { opacity: .25; }
+#pix figcaption { text-align: center; max-width: 80ch; }
+#pix figcaption b { font-weight: 600; letter-spacing: .02em; }
+#pix figcaption span { color: #aaa; }
+#pix .count { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); color: #aaa; font-variant-numeric: tabular-nums; }
+#pix button { position: absolute; border: 0; cursor: pointer; color: #fff; background: rgba(255,255,255,.12); border-radius: 999px;
+  width: 48px; height: 48px; font-size: 24px; line-height: 48px; padding: 0; backdrop-filter: blur(4px); }
+#pix button:hover { background: rgba(255,255,255,.24); }
+#pix .x { top: 12px; right: 12px; width: 40px; height: 40px; line-height: 40px; font-size: 20px; }
+#pix .prev { left: 14px; top: 50%; transform: translateY(-50%); }
+#pix .next { right: 14px; top: 50%; transform: translateY(-50%); }
+#pix .strip { display: flex; gap: 6px; margin-top: 14px; max-width: 92vw; overflow-x: auto; padding: 4px; }
+#pix .strip i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,.25); cursor: pointer; flex: none; }
+#pix .strip i.cur { background: #ffd54a; transform: scale(1.35); }
+#pix .err { color: #f88; }
 </style>
 
 <div id="app">
