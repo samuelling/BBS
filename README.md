@@ -183,6 +183,15 @@ storage. The Game Pack in the Games area (Tyrian 2000 via OpenTyrian, Freedoom +
 Fall 2097 via OpenOMF, for Windows and Mac) is linked to each project's official GitHub release.
 On a home file server, copy them in and clear `ext_url`.
 
+**Music.** The Music area holds 45 classic tracker modules (MOD, S3M, XM, IT) from the '90s
+scene: Purple Motion and Skaven of Future Crew, Necros, Captain, Jester, Jogeir Liljedahl, Elwood
+and more, linked from The Mod Archive and credited in MUSIC.NFO. No MIDI on purpose: most BBS-era
+MIDI files were unlicensed covers of pop songs.
+
+**Bundled files.** `ext_url` can also be `asset:/files/NAME`, a file shipped with the board in
+`public/files/`. The Orders of Magnitude demos (Demoseed 4K and 40K, from samuelling/DemoVoyager)
+live there; Big Apple Sam's screen savers link to its GitHub release.
+
 `STORAGE_QUOTA_MB` caps the board's total storage (900 MB by default on KV) so
 uploads fail politely with "hard drive is full" instead of hitting a hidden limit.
 Callers see the free space at login.

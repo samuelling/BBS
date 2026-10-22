@@ -1,0 +1,73 @@
+===============================================================================
+       T H E   S E P T I C   T A N K Z   ::   M U S I C   A R E A
+        45 tracker modules from the '90s scene, the stuff we all leeched
+===============================================================================
+
+ WHAT ARE THESE FILES?
+ ---------------------
+ Before MP3s, music on BBSes came as "modules": a tiny song file holding its
+ own instrument samples plus the notes to play them, so a 4-minute song fit
+ in 100K. You played them back on your Sound Blaster or Gravis Ultrasound.
+
+   .MOD   Amiga ProTracker format, 4 channels (later 6, 8 or more). The
+          original. Mostly 1987-1993.
+   .S3M   Scream Tracker 3 (Future Crew, 1994). The PC demoscene standard.
+   .XM    FastTracker 2 (Triton, 1994). Instruments with envelopes.
+   .IT    Impulse Tracker (Jeffrey Lim, 1995). The power user's choice.
+
+ There's no MIDI in here on purpose. Almost every .MID file passed around
+ on boards back then was somebody's unlicensed sequence of a pop song.
+ Modules were different: original music the scene wrote and spread for free.
+
+ HOW TO PLAY THEM TODAY
+ ----------------------
+   Windows:  OpenMPT (free, plays and edits everything), or foobar2000 /
+             XMPlay.  Mac:  VLC plays all four formats.  Schism Tracker
+             (Mac/Win/Linux) and MilkyTracker (Mac/Win, best for MOD/XM)
+             let you watch the patterns scroll the way we used to.
+
+ WHO MADE THEM
+ -------------
+ Every module comes from The Mod Archive (modarchive.org), which has kept
+ the scene's music online since 1996. The board fetches each file from
+ there when you download it. All music is the work of its composers,
+ credited below. Shared here non-commercially, in the spirit it was
+ released. Composers who want a track pulled: leave the SysOp a message.
+
+  Purple Motion (Future Crew) ... Unreal II (Second Reality soundtrack),
+                                  Satellite One, Starshine, Aquaphobia,
+                                  Astraying Voyages, Sundance, When the
+                                  Heavens Fall, Shadowrun, Cool City 1.2
+  Skaven (Future Crew) .......... The 2nd Reality, Catch That Goblin!!,
+                                  Deep in Her Eyes (Assembly '94),
+                                  Ice Frontier, Realm of Chaos
+  Necros ........................ Point of Departure, Ascent of the Cloud
+                                  Eagle, Mechanism Eight
+  Necros & Purple Motion ........ Click
+  Necros & Basehead ............. Search for the Lost Riff
+  Captain ....................... Space Debris
+  Horace Wimp ................... Hymn to Aurora
+  Jogeir Liljedahl .............. Guitar Slinger, Ambrozia
+  Jester ........................ Elysium, Stardust Memories
+                                  (licensed CC BY-NC-SA)
+  Elwood ........................ Dead Lock, Sick on Monday, Into the
+                                  Shadow
+  Karsten Koch .................. Aryx
+  Firefox ....................... Musiklinjen
+  Jugi (Complex) ................ Dope (The Party '95 demo winner)
+  Walkman ....................... Klisje paa klisje
+  Romeo Knight .................. Cream of the Earth
+  Lizardking .................... Age of Legends
+  Dr. Awesome ................... 12th Warrior, Andante
+  Moby .......................... Elektric Funk
+  Andreas Viklund ............... Dreams (licensed CC BY)
+  Acumen ........................ One of a Kind (licensed CC BY-NC-ND)
+  ArchAngel ..................... Archons of Light
+  Jeroen Tel .................... Letting Go
+  Nightbeat ..................... Anthem
+  Awesome ....................... Aquarium (16 bit)
+  Swallow ....................... Butterfly Flew Away
+  BeaT .......................... Celestial Fantasia
+
+ Got a module you wrote back then? Upload it. Your own work only.
+===============================================================================

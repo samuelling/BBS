@@ -1114,7 +1114,10 @@ async function serveTicket(env, id) {
   if (f.content != null) return new Response(f.content, { headers });
   if (f.ext_url) {
     // A linked file: stream it from its official home through the board's own link.
-    const r = await fetch(f.ext_url, { headers: { "user-agent": "SepticTankz-BBS" } });
+    // "asset:/files/X" means a file shipped with the board itself (public/files/), not an outside site.
+    const r = f.ext_url.startsWith("asset:")
+      ? await env.ASSETS.fetch(new Request(new URL(f.ext_url.slice(6), "https://board.local")))
+      : await fetch(f.ext_url, { headers: { "user-agent": "SepticTankz-BBS" } });
     if (!r.ok || !r.body) return new Response("The file's home server didn't answer (" + r.status + "). Try again later.\n", { status: 502, headers: { "content-type": "text/plain", ...CORS } });
     const len = r.headers.get("content-length");
     if (len) headers["content-length"] = len;
