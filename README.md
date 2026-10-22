@@ -177,6 +177,12 @@ and changing one setting.
 | `r2` | An R2 bucket (uncomment `r2_buckets`) | 10 GB free, then pay as you go. Needs the R2 subscription. 100 MB per file. |
 | `http` | Your own file server | Whatever your disk holds. 100 MB per file through Cloudflare. |
 
+**Linked files.** A file row can carry an `ext_url` instead of stored bytes: the board streams it
+from that address through its own `/dl/` link, so it looks like any other download and takes no
+storage. The Game Pack in the Games area (Tyrian 2000 via OpenTyrian, Freedoom + Woof!, One Must
+Fall 2097 via OpenOMF, for Windows and Mac) is linked to each project's official GitHub release.
+On a home file server, copy them in and clear `ext_url`.
+
 `STORAGE_QUOTA_MB` caps the board's total storage (900 MB by default on KV) so
 uploads fail politely with "hard drive is full" instead of hitting a hidden limit.
 Callers see the free space at login.

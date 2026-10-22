@@ -1,0 +1,54 @@
+==============================================================================
+          T H E   S E P T I C   T A N K Z   ::   G A M E   P A C K
+         classic shareware & freeware, rebuilt to run on modern PCs
+==============================================================================
+
+These are all FREE downloads (they don't touch your ratio). Every one is
+legal to pass around: the engines are open source, and the game data is
+either freeware or a free replacement. Grab the one for your machine.
+
+------------------------------------------------------------------------------
+ TYRIAN 2000                     OTYRIAN-WIN.ZIP / OTYRIAN-MAC.ZIP
+------------------------------------------------------------------------------
+ The best vertical shooter on the PC, from 1995. The full game went freeware
+ in 2004. OpenTyrian (GNU GPL) is a port of the original code that runs on
+ Windows and Mac, with the freeware game data packed in. Unzip and run.
+
+------------------------------------------------------------------------------
+ DOOM, MINUS THE COPYRIGHT       FREEDOOM.ZIP + WOOF-WIN.ZIP / WOOF-MAC.ZIP
+------------------------------------------------------------------------------
+ id Software opened the Doom engine source in 1997. Freedoom is a complete
+ replacement for Doom's levels, art and sound, made by volunteers and free
+ under a BSD license. Woof! (GNU GPL) is a faithful modern Doom engine.
+ You need BOTH: unzip Woof, unzip Freedoom, and put freedoom1.wad (Phase 1,
+ the episodes) or freedoom2.wad (Phase 2, one long campaign) next to Woof.
+ Got your old DOOM1.WAD from a shareware disk? Woof plays that too.
+
+------------------------------------------------------------------------------
+ ONE MUST FALL 2097              OPENOMF-WIN.ZIP / OPENOMF-MAC.ZIP
+------------------------------------------------------------------------------
+ Giant robots punching each other, 1994. The original was released as
+ freeware in 1999; OpenOMF (MIT license) is an open-source remake of the
+ engine. The Mac build is for Apple Silicon (M1 and later), macOS 14+.
+
+------------------------------------------------------------------------------
+ MAC USERS
+------------------------------------------------------------------------------
+ These apps aren't from the App Store, so the first time you open one, macOS
+ may refuse. Right-click (or Control-click) the app, choose Open, then Open
+ again. If it still says the app is damaged, open Terminal and run:
+     xattr -dr com.apple.quarantine /path/to/the.app
+
+------------------------------------------------------------------------------
+ CREDITS
+------------------------------------------------------------------------------
+ Tyrian: Jason Emery, Alexander Brandon, Daniel Cook (World Tree Games)
+   OpenTyrian: github.com/opentyrian/opentyrian
+ Doom: id Software.  Freedoom: freedoom.github.io
+   Woof!: github.com/fabiangreffrath/woof
+ One Must Fall 2097: Diversions Entertainment / Epic MegaGames
+   OpenOMF: github.com/omf2097/openomf
+
+ Each zip is the project's own unmodified release, with its license inside.
+ Report broken files to the SysOp. Flush responsibly.
+==============================================================================

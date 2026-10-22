@@ -90,7 +90,7 @@ function storage(env) {
   };
 }
 async function diskUsed(env) {
-  const r = await env.DB.prepare("SELECT COALESCE(SUM(size),0) b FROM files WHERE content IS NULL").first();
+  const r = await env.DB.prepare("SELECT COALESCE(SUM(size),0) b FROM files WHERE content IS NULL AND ext_url IS NULL").first();
   return r.b;
 }
 
@@ -856,7 +856,7 @@ async function info(env) {
     env.DB.prepare("SELECT COUNT(*) n, COALESCE(SUM(size),0) b FROM files f JOIN areas a ON a.id = f.area_id WHERE status = 'approved' AND a.side = 'main'"),
     env.DB.prepare("SELECT COUNT(*) n FROM posts p JOIN bases b ON b.id = p.base_id WHERE b.side = 'main'"),
     env.DB.prepare("SELECT COUNT(*) n FROM callers"),
-    env.DB.prepare("SELECT COALESCE(SUM(size),0) b FROM files WHERE content IS NULL"),
+    env.DB.prepare("SELECT COALESCE(SUM(size),0) b FROM files WHERE content IS NULL AND ext_url IS NULL"),
   ]);
   return json({
     board: s.board, lines: await phoneLines(env), timeMin: s.timeMin, users: r[0].results[0].n,
@@ -1112,6 +1112,14 @@ async function serveTicket(env, id) {
     "x-content-type-options": "nosniff",
   };
   if (f.content != null) return new Response(f.content, { headers });
+  if (f.ext_url) {
+    // A linked file: stream it from its official home through the board's own link.
+    const r = await fetch(f.ext_url, { headers: { "user-agent": "SepticTankz-BBS" } });
+    if (!r.ok || !r.body) return new Response("The file's home server didn't answer (" + r.status + "). Try again later.\n", { status: 502, headers: { "content-type": "text/plain", ...CORS } });
+    const len = r.headers.get("content-length");
+    if (len) headers["content-length"] = len;
+    return new Response(r.body, { headers });
+  }
   const body = await storage(env).stream(f.r2_key);
   if (!body) return new Response("File is missing from the drive.\n", { status: 404, headers: CORS });
   headers["content-length"] = String(f.size);
@@ -1155,7 +1163,7 @@ async function stats(req, env, body) {
     all("SELECT at FROM mail WHERE at > ?", since),
     all("SELECT at FROM oneliners WHERE at > ?", since),
     all("SELECT f.id, f.filename, f.size, f.downloads, f.status, a.name area, a.side FROM files f JOIN areas a ON a.id = f.area_id"),
-    all("SELECT COALESCE(SUM(size),0) b FROM files WHERE content IS NULL"),
+    all("SELECT COALESCE(SUM(size),0) b FROM files WHERE content IS NULL AND ext_url IS NULL"),
     all("SELECT COUNT(*) n FROM apps WHERE status = 'open'"),
     all("SELECT at FROM pages WHERE at > ?", since),
     all("SELECT node, handle, activity, since FROM line WHERE token IS NOT NULL AND beat > ? ORDER BY node", t - BEAT_MS),
