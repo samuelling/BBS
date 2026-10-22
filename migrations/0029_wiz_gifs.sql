@@ -1,0 +1,3 @@
+-- Two GIFs for the Image Board, contributed by Wiz (shipped with the board in public/files).
+INSERT INTO files (area_id, filename, descr, size, uploader, uploaded_at, status, free, ext_url, ctype) VALUES (7, 'COMPUTER.GIF', '"I am now telling the computer that..."', 227891, 'Wiz', 1792676020496, 'approved', 1, 'asset:/files/COMPUTER.GIF', 'image/gif');
+INSERT INTO files (area_id, filename, descr, size, uploader, uploaded_at, status, free, ext_url, ctype) VALUES (7, 'THUMBSUP.GIF', 'Kid at the computer gives it a thumbs up', 12250186, 'Wiz', 1792676020497, 'approved', 1, 'asset:/files/THUMBSUP.GIF', 'image/gif');
