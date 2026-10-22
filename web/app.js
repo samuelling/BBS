@@ -1398,9 +1398,8 @@ const DOOR_LIST = [
   { k: "A", id: "trek", name: "Deep Space Patrol", what: "after the 1971 Star Trek game", exe: "PATROL.BAS" },
   { k: "B", id: "hammurabi", name: "Hammurabi", what: "rule Sumeria for ten years", exe: "HAMURABI.BAS" },
   { k: "C", id: "lander", name: "Lunar Lander", what: "don't make a new crater", exe: "LANDER.BAS" },
-  { sec: "FROM THE COLLECTIVE |08megaZINE contributors" },
-  { k: "M", id: "chairquest", name: "ChairQuest", what: "Matt Crump: survive a year as Chair", exe: "CHAIRQST.EXE" },
   { sec: "HOMEGROWN" },
+  { k: "M", id: "chairquest", name: "ChairQuest", what: "Matt Crump: survive a year as Chair", exe: "CHAIRQST.EXE" },
   { k: "E", id: "escape", name: "Escape the Tank", what: "text adventure by the SysOp", exe: "ESCAPE.EXE" },
 ];
 async function doors() {

@@ -102,7 +102,7 @@ and dice run on the board's server.
   `scripts/build_advent.sh` rebuilds it.
 - SAVE and RESTORE (RESUME in Colossal Cave) keep one saved game per caller on the board.
 
-**From the collective.** ChairQuest by Matt Crump (github.com/CrumpLab/ChairQuest): survive a
+**Homegrown.** Escape the Tank, by the SysOp, and ChairQuest by Matt Crump (github.com/CrumpLab/ChairQuest): survive a
 year as department chair. `scripts/import_chairquest.py` copies his game (scenarios, events,
 endings, rules) verbatim from his page and adds a terminal front end; rerun it to pick up his
 updates. His real-time advanced sandbox opens on his site.
