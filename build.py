@@ -17,9 +17,9 @@ def shade(lines, colors, indent=0):
     return ["|%02d" % colors[min(i, len(colors) - 1)] + " " * indent + l for i, l in enumerate(lines)]
 
 ART = {}
-ART["logo_main"] = ["|08" + " " * 7 + "- = [ |14t h e|08 ] = -"] + shade(fig("SEPTiC TANKZ", "doom"), [15, 11, 11, 3, 3, 1], 6)
+ART["logo_main"] = shade(fig("MEGAzine", "doom"), [14, 14, 13, 13, 5, 5], 14) + ["|08" + " " * 27 + "- = [ |15B  B  S|08 ] = -"]
 ART["qterm"] = fig("Q-Slodem", "standard")   # the terminal program's own splash title (plain, colored in app.js)
-ART["logo_elite"] = shade(fig("CESSPOOL", "poison"), [13, 13, 5, 5, 12, 12, 4, 4, 8, 8])
+ART["logo_elite"] = shade(fig("SEPTiC", "poison"), [13, 13, 5, 5, 12, 12, 4, 4, 8, 8], 4) + ["|08" + " " * 17 + "- = [ |13T  A  N  K|08 ] = -   |05ELiTE|08"]
 
 TANK = [
 " FROM HOUSE                                               TO LEACH FIELD",
@@ -52,10 +52,30 @@ def colorize(lines, fn):
         out.append(s)
     return out
 ART["tank"] = colorize(TANK, tank_color)
+ART["zine"] = [
+    "|07        _______________________          |14 ISSUE #01 |08...|07 out now",
+    "|07       |\\ |15MEGA|13zine|07   no. 01     \\         |08 cut. paste. copy. staple.",
+    "|07       | \\  |08~~~~~~~~~~~~~~~~~~|07   \\        |08 weird apps, odd music, paint,",
+    "|07       |  \\  |08~~~ ~~~~~ ~~~~~~|07     \\       |08 stories, and whatever you upload.",
+    "|07       |   \\______________________\\",
+    "|07       \\   |      |15[ QR ]|07         |       |11 megazine.org",
+    "|07        \\  |   |08toner low|07          |",
+    "|07         \\ |______________________|",
+]
+ART["stapler"] = [
+    "|07          ________________________",
+    "|07         /  |15MEGA|13zine|07  STAPLE-O-MATIC  /|      |08Thanks for calling",
+    "|07        /________________________/ |      |15MEGAZINE BBS",
+    "|07        |  ____________________  |/",
+    "|07        |_/                    \\_|        |08Remember: cut, paste,",
+    "|07      ====================================  |08copy, upload.",
+    "|07",
+    "|07                                            |11Call back soon.",
+]
 ART["toilet"] = [
     "|07              ____________",
     "|07             |  |15SEPTIC|07    |      |08Thanks for calling",
-    "|07             |__|15TANKZ|07____|      |15THE SEPTIC TANKZ",
+    "|07             |__|15TANK|07_____|      |15THE SEPTIC TANK",
     "|07               |      |",
     "|07          .----'------'----.        |08Remember: only flush",
     "|07         (                  )       |08what you've uploaded.",

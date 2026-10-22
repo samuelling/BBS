@@ -1,4 +1,4 @@
-// Barren Drains Elite — a shared-world empire door for The Septic Tankz.
+// Barren Drains Elite — a shared-world empire door for MEGAzine BBS.
 // Original game in the style of the old empire doors: every turn is a year, turns refill daily,
 // and everybody's realm lives in the same world. All rules and dice rolls live here.
 

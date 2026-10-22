@@ -1,5 +1,5 @@
-UPLOAD/DOWNLOAD RATIOS ON THE SEPTIC TANKZ
-==========================================
+UPLOAD/DOWNLOAD RATIOS ON MEGAZINE BBS
+=====================================
 
 This board runs on ratios, like every good board does. You earn
 download credit by uploading.
@@ -14,11 +14,11 @@ THE MAIN BOARD
 UPLOADING
   * Upload from the file area you want the file to go in.
   * New uploads wait in the SysOp's validation queue. Junk, viruses
-    and anything we don't want to host get flushed without credit.
+    and anything we don't want to host get shredded without credit.
   * Give your file a real description. "cool file" is not one.
 
 YOUR STATS
   Check [Y] Your Stats on the main menu any time to see your
   uploads, downloads and remaining credit.
 
-Leeches will be flushed.
+Leeches will be recycled.

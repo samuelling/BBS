@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Septic Tankz Stats</title>
+<title>MEGAzine BBS Stats</title>
 <style>
 /* Layout: sticky toolbar, one KPI row, then a two-column grid of chart cards that stacks on phones */
 :root {
@@ -139,7 +139,7 @@ tr:last-child td { border-bottom: 0; }
 <div class="wrap">
   <form id="login" class="card" hidden>
     <h1>SysOp stats</h1>
-    <p>The Septic Tankz. Sign in with your SysOp handle and password.</p>
+    <p>MEGAzine BBS. Sign in with your SysOp handle and password.</p>
     <label for="h">Handle</label><input id="h" autocomplete="username" required>
     <label for="p">Password</label><input id="p" type="password" autocomplete="current-password" required>
     <button class="btn" type="submit">Sign in</button>
@@ -149,7 +149,7 @@ tr:last-child td { border-bottom: 0; }
   <div id="app" hidden>
     <header>
       <div>
-        <h1>The Septic Tankz</h1>
+        <h1>MEGAzine BBS</h1>
         <div class="sub" id="sub">Usage stats</div>
       </div>
       <span class="live" id="live"><i></i><span>0 online</span></span>
@@ -565,7 +565,7 @@ function render() {
   const bd = $("board"); bd.textContent = "";
   const pendingFiles = D.files.filter(f => f.status === "pending").length;
   const rows = [
-    ["Users", nf.format(D.users.length) + " (" + D.users.filter(u => u.elite).length + " with Cesspool access)"],
+    ["Users", nf.format(D.users.length) + " (" + D.users.filter(u => u.elite).length + " with Septic Tank access)"],
     ["Waiting for you", pendingFiles + " upload" + (pendingFiles === 1 ? "" : "s") + ", " + pending + " new user" + (pending === 1 ? "" : "s") + ", " + D.openApps + " application" + (D.openApps === 1 ? "" : "s")],
     ["Files online", nf.format(D.files.filter(f => f.status === "approved").length)],
     ["Pages to you", nf.format(D.pages.filter(inCur).length) + " this period"],

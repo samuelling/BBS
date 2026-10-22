@@ -1,6 +1,6 @@
 {
-  "name": "The Septic Tankz",
-  "short_name": "Septic Tankz",
+  "name": "MEGAzine BBS",
+  "short_name": "MEGAzine",
   "description": "A dial-up BBS. Call in, upload, download, post.",
   "start_url": "./",
   "scope": "./",

@@ -1,4 +1,4 @@
-// BASIC CLASSICS — four 1970s type-in games, rewritten for The Septic Tankz.
+// BASIC CLASSICS — four 1970s type-in games, rewritten for MEGAzine BBS.
 // Hunt the Wumpus (after Gregory Yob, 1973), Deep Space Patrol (after Mike Mayfield's 1971 space-war
 // game and the Ahl/Leedom expansion), Hammurabi (after Doug Dyment, 1968, and David Ahl's version)
 // and Lunar Lander (after Jim Storer's 1969 LUNAR). New code and new words; the old rules.

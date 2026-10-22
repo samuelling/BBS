@@ -1,4 +1,4 @@
-// The Septic Tankz — board server (Cloudflare Worker + D1, files in KV / R2 / your own server)
+// MEGAzine BBS — board server (Cloudflare Worker + D1, files in KV / R2 / your own server)
 //
 // Every caller holds a "phone line": a row in the `line` table with a random
 // token and a heartbeat. No line, no service. Accounts, ratios, uploads and the
@@ -36,7 +36,7 @@ function settings(env) {
   return {
     store,
     quota: n(env.STORAGE_QUOTA_MB, store === "kv" ? 900 : 0) * 1048576,   // 0 = no board-wide limit
-    board: env.BOARD_NAME || "The Septic Tankz",
+    board: env.BOARD_NAME || "MEGAzine BBS",
     lines: Math.min(MAX_LINES, n(env.PHONE_LINES, 1)),
     timeMin: n(env.TIME_LIMIT_MIN, 60),
     maxUpload: Math.min(n(env.MAX_UPLOAD_MB, 25), STORE_CAP_MB[store]) * 1048576,
@@ -131,7 +131,7 @@ export default {
 
 // ---------------------------------------------------------------- SysOp phone notifications (Telegram)
 // The SysOp makes a Telegram bot with @BotFather, pastes its token into the SysOp console and
-// says hi to it; the board then messages that chat. New users, uploads and Cesspool applications
+// says hi to it; the board then messages that chat. New users, uploads and Septic Tank applications
 // are bundled: the first one pings right away, anything else within the hour is rolled into one
 // summary that the cron sends when the hour is up. Pages ping right away, but only when the SysOp
 // isn't already on the board.
@@ -200,14 +200,14 @@ function waitingText(w) {
   const bits = [];
   if (w.users) bits.push(w.users + " new user" + (w.users > 1 ? "s" : ""));
   if (w.uploads) bits.push(w.uploads + " upload" + (w.uploads > 1 ? "s" : ""));
-  if (w.apps) bits.push(w.apps + " Cesspool application" + (w.apps > 1 ? "s" : ""));
+  if (w.apps) bits.push(w.apps + " Septic Tank application" + (w.apps > 1 ? "s" : ""));
   return bits.length ? bits.join(", ") + " waiting for you." : "";
 }
 async function notifySummary(env) {
   const text = waitingText(await waitingCounts(env));
   await setConfig(env, "notify_pending", "0");
   if (!text) return;   // the SysOp already dealt with it
-  if (await notifySend(env, "The Septic Tankz", text)) await setConfig(env, "notify_last", now());
+  if (await notifySend(env, settings(env).board, text)) await setConfig(env, "notify_last", now());
 }
 // Something new landed in a SysOp queue.
 async function notifyQueue(env) {
@@ -327,7 +327,7 @@ async function getUser(env, line) {
   const u = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(line.user_id).first();
   if (!u || u.banned) {
     await hangupToken(env, line.token);
-    throw new BoardError("Your account has been flushed.", 403, { carrier: false });
+    throw new BoardError("Your account has been shredded.", 403, { carrier: false });
   }
   return u;
 }
@@ -472,7 +472,7 @@ async function route(path, req, env) {
       if (f.content != null) bytes = new TextEncoder().encode(f.content);
       else if (f.ext_url) {
         // A linked file: fetch it from its home for the viewer (capped, same as stored files).
-        const r = await fetch(f.ext_url, { headers: { "user-agent": "SepticTankz-BBS" } });
+        const r = await fetch(f.ext_url, { headers: { "user-agent": "MEGAzine-BBS" } });
         if (!r.ok) throw new BoardError("The file's home server didn't answer (" + r.status + "). Try again later.", 502);
         bytes = new Uint8Array(await r.arrayBuffer()).subarray(0, viewCap(f.filename));
       } else {
@@ -777,12 +777,12 @@ async function route(path, req, env) {
         if (!msg) throw new BoardError("No message yet. Open your bot in Telegram, tap Start (or send it anything), then try again.");
         await setConfig(env, "tg_chat", String(msg.chat.id));
         await setConfig(env, "tg_name", msg.chat.first_name || msg.chat.username || "");
-        try { await notifySend(env, "The Septic Tankz", "Connected. The board will ping you here when things need your attention."); }
+        try { await notifySend(env, settings(env).board, "Connected. The board will ping you here when things need your attention."); }
         catch (e) { throw new BoardError("Found you, but couldn't send: " + e.message); }
       }
       if (body.op === "test") {
         let sent;
-        try { sent = await notifySend(env, "The Septic Tankz", "Test ping from the SysOp console. If you can read this, you're wired up."); }
+        try { sent = await notifySend(env, settings(env).board, "Test ping from the SysOp console. If you can read this, you're wired up."); }
         catch (e) { throw new BoardError("Couldn't send (" + e.message + ")."); }
         if (!sent) throw new BoardError("Finish setting it up first.");
       }
@@ -794,7 +794,7 @@ async function route(path, req, env) {
           const testing = (await config(env, "tg_api")) && /^http:\/\/127\.0\.0\.1:\d+\//.test(hook);   // local tests only
           if (!SLACK_HOOK.test(hook) && !testing) throw new BoardError("That isn't a Slack webhook URL. They start with https://hooks.slack.com/services/");
           await setConfig(env, "board_url", new URL(req.url).origin);
-          try { await slack(env, hook, "The Septic Tankz", "Connected. The board will post here when things need your attention."); }
+          try { await slack(env, hook, settings(env).board, "Connected. The board will post here when things need your attention."); }
           catch (e) { throw new BoardError("Slack didn't take it (" + e.message + ")."); }
           await setConfig(env, "slack_hook", hook);
         }
@@ -828,7 +828,7 @@ function timeLeft(env, line) {
   return Math.max(0, Math.floor((line.since + settings(env).timeMin * 60_000 - now()) / 60_000));
 }
 
-// Which chat room a caller may be in: the main teleconference, the Cesspool's, or a SysOp page chat.
+// Which chat room a caller may be in: the main teleconference, the Septic Tank's, or a SysOp page chat.
 async function chatRoomFor(env, line, user, room) {
   room = String(room || "");
   if (room === "tele") return room;
@@ -961,7 +961,7 @@ async function login(req, env, body) {
   }
   if (u.banned) {
     await hangupToken(env, line.token);
-    return json({ error: "Your account has been flushed.", carrier: false }, 403);
+    return json({ error: "Your account has been shredded.", carrier: false }, 403);
   }
   const eliteOk = !!body.elite && (u.elite || u.level >= 255);
   const t = now();
@@ -1134,7 +1134,7 @@ async function serveTicket(env, id) {
     // "asset:/files/X" means a file shipped with the board itself (public/files/), not an outside site.
     const r = f.ext_url.startsWith("asset:")
       ? await env.ASSETS.fetch(new Request(new URL(f.ext_url.slice(6), "https://board.local")))
-      : await fetch(f.ext_url, { headers: { "user-agent": "SepticTankz-BBS" } });
+      : await fetch(f.ext_url, { headers: { "user-agent": "MEGAzine-BBS" } });
     if (!r.ok || !r.body) return new Response("The file's home server didn't answer (" + r.status + "). Try again later.\n", { status: 502, headers: { "content-type": "text/plain", ...CORS } });
     const len = r.headers.get("content-length");
     if (len) headers["content-length"] = len;

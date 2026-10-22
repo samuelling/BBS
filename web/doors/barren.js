@@ -57,7 +57,7 @@
     if (st.top) await out("|07  Mightiest realm: |15" + esc(st.top.name) + " |08ruled by |14" + esc(st.top.handle) +
       " |08(" + n(st.top.land) + " acres, worth " + n(st.top.networth) + ")\n");
     else await out("|07  No realms yet. The land is empty, damp, and yours for the taking.\n");
-    await out("|08  " + st.count + " realm" + (st.count === 1 ? "" : "s") + " in the world.  An original door for The Septic Tankz.\n");
+    await out("|08  " + st.count + " realm" + (st.count === 1 ? "" : "s") + " in the world.  An original door for MEGAzine BBS.\n");
     await anyKey();
   }
 

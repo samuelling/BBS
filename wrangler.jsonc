@@ -31,7 +31,7 @@
   ],
   "triggers": { "crons": ["*/15 * * * *"] },
   "vars": {
-    "BOARD_NAME": "The Septic Tankz",
+    "BOARD_NAME": "MEGAzine BBS",
     "PHONE_LINES": "1",
     "TIME_LIMIT_MIN": "60",
     "REQUIRE_VALIDATION": "1",

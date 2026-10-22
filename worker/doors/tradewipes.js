@@ -1,4 +1,4 @@
-// Trade Wipes 2002 — a shared-universe space trading door for The Septic Tankz.
+// Trade Wipes 2002 — a shared-universe space trading door for MEGAzine BBS.
 // An original game in the spirit of the classic BBS trading doors. Every rule and every die
 // roll lives here; the browser only draws what this sends back.
 

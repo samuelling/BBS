@@ -1,6 +1,6 @@
 // Z-machine interpreter (versions 1-3) and the Zork I / II / III doors.
 //
-// Written for The Septic Tankz from the Z-Machine Standards Document 1.1. It plays the original
+// Written for MEGAzine BBS from the Z-Machine Standards Document 1.1. It plays the original
 // Infocom story files: Zork I-III, whose source Microsoft released under the MIT License in 2025
 // (see doors/ZORK-LICENSE.txt). The machine runs synchronously until it needs something from the
 // outside world (a line of input, a save, a restore, the end of the game), then hands control back

@@ -1,5 +1,5 @@
 "use strict";
-// The Septic Tankz — terminal client. Talks to the board server at API.
+// MEGAzine BBS — terminal client. Talks to the board server at API.
 
 // ---------------------------------------------------------------- config
 const API = (((document.querySelector('meta[name="bbs-api"]') || {}).content) || "").replace(/^\/\*.*\*\/$/, "").replace(/\/$/, "");
@@ -541,7 +541,7 @@ async function splash() {
     title +
     boxRow(" ".repeat(56) + "|15Version 4.51") +
     boxRow("          |15The Professional Communications Program for the IBM PC") +
-    boxRow("   |07Copyright (c) 1989-1996 Leach Field Software.  All Rights Reserved.") +
+    boxRow("   |07Copyright (c) 1989-1996 Glue Stick Software.   All Rights Reserved.") +
     boxRow("") +
     nag("U N R E G I S T E R E D    E V A L U A T I O N    C O P Y") +
     nag("") +
@@ -584,12 +584,12 @@ async function dialer() {
       rule80 +
       blue("|11  ##  " + pad("Name", 28) + " " + pad("Number", 17) + "  " + pad("Baud", 7) + " Last call") +
       blue("|03  --  " + "-".repeat(28) + " " + "-".repeat(17) + "  " + "-".repeat(7) + " ---------") +
-      entry(1, "The Septic Tankz", PHONE, MODEM.telnet ? "telnet" : MODEM.id, "today", true) +
+      entry(1, "MEGAzine BBS", PHONE, MODEM.telnet ? "telnet" : MODEM.id, "today", true) +
       entry(2, "The Grease Trap", "[unlisted]", "2400", "06/12/96", false) +
       entry(3, "Mom's House (voice!)", "do not dial", "--", "never", false) +
       blue("") +
       rule80 +
-      blue("|07  The Septic Tankz is a real board with real phone lines. When they're all in") +
+      blue("|07  MEGAzine BBS is a real board with real phone lines. When they're all in") +
       blue("|07  use you get a |12busy signal|07. Try again, or let auto-redial keep trying.") +
       rule80 +
       blue("|07 {D} Dial  {A} Auto-redial  {S} Modem: |15" + pad(MODEM.telnet ? "Ethernet" : MODEM.label, 9) + "|07 {L} Local console  {?} About") +
@@ -660,7 +660,7 @@ async function localConsole() {
 async function about() {
   cls();
   await out(
-    "|15 About The Septic Tankz\n" + rule(8) +
+    "|15 About MEGAzine BBS\n" + rule(8) +
     "|07 A real dial-up style BBS. Make an account, post in the message bases,\n" +
     " and trade files. Downloads cost credit; you earn credit by uploading.\n" +
     " Uploads are checked by the SysOp before they go live.\n\n" +
@@ -679,12 +679,12 @@ async function dial() {
   const call = () => rawFetch("dial", { headers: { "content-type": "application/json" }, body: JSON.stringify({ modem: MODEM.id }) })
     .then(r => r.json()).then(d => { result = d; }).catch(e => { failed = e; }).finally(() => { settled = true; });
   if (MODEM.telnet) {
-    await out("|07telnet tankz.septic.net\n|08Trying tankz.septic.net...\n");
+    await out("|07telnet bbs.megazine.org\n|08Trying bbs.megazine.org...\n");
     await call();
     if (!result || result.error) { await out("|12telnet: connect to host: Connection timed out\n"); setMode("offline"); state = "nodial"; return false; }
     if (result.busy) { await out("|12telnet: All " + result.lines + " node" + (result.lines > 1 ? "s are" : " is") + " busy. Connection refused.\n"); setMode("offline"); return false; }
     token = result.token; myNode = result.node; LINES = result.lines; TIME_MIN = result.timeMin;
-    await out("|07Connected to tankz.septic.net.\nEscape character is '^]'.\n");
+    await out("|07Connected to bbs.megazine.org.\nEscape character is '^]'.\n");
     CPS = MODEM.cps;
     setMode("online");
     await sleep(300);
@@ -726,14 +726,14 @@ async function board() {
   try { INFO = await api("info"); } catch (e) { if (e instanceof Hangup) throw e; INFO = null; }
   await art("logo_main");
   const d = new Date();
-  await out("\n" + rule(8) + "|07   SludgeWare BBS v0.99|08ß|07  |08*|07  Nodes: |15" + LINES + "|07  |08*|07  " +
+  await out("\n" + rule(8) + "|07   StapleWare BBS v0.99|08ß|07  |08*|07  Nodes: |15" + LINES + "|07  |08*|07  " +
     d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }) + "\n" + rule(8));
   if (INFO) {
     await out("|08   Users |15" + INFO.users + "   |08Files |15" + INFO.files + " |08(" + K(INFO.bytes) + ")   |08Messages |15" + INFO.posts +
       "   |08Calls |15" + INFO.callers +
       (INFO.diskFree != null ? "   |08Free |15" + K(INFO.diskFree) : "") + "\n\n");
   }
-  await art("tank");
+  await art("zine");
   if (INFO && INFO.fresh) await out("\n|14 Fresh install. |07The first account created becomes the |15SysOp|07.\n");
   for (let tries = 0; tries < 6 && !S; tries++) {
     await out("\n|07Enter your handle, or |14NEW|07: |15");
@@ -774,7 +774,7 @@ async function newUser() {
   const location = (await readLine({ max: 30 })).trim();
   let app = "";
   if (INFO && INFO.requireValidation && !INFO.fresh) {
-    await out("\n|11 A couple of questions for the SysOp:\n|07How did you hear about The Septic Tankz?\n|07> |15");
+    await out("\n|11 A couple of questions for the SysOp:\n|07How did you hear about MEGAzine BBS?\n|07> |15");
     const heard = (await readLine({ max: 70 })).trim();
     await out("|07What are you into? (games, ANSI art, music, modems...)\n|07> |15");
     const into = (await readLine({ max: 70 })).trim();
@@ -805,7 +805,7 @@ async function lobby() {
       const bits = [];
       if (nu.rows.length) bits.push(nu.rows.length + " new user" + (nu.rows.length > 1 ? "s" : ""));
       if (q.rows.length) bits.push(q.rows.length + " upload" + (q.rows.length > 1 ? "s" : ""));
-      if (ap.rows.length) bits.push(ap.rows.length + " Cesspool application" + (ap.rows.length > 1 ? "s" : ""));
+      if (ap.rows.length) bits.push(ap.rows.length + " Septic Tank application" + (ap.rows.length > 1 ? "s" : ""));
       if (bits.length) await out("|14SysOp: " + bits.join(", ") + " waiting. |07Press |14[!]|07 on the main menu.\n");
     } catch (e) { if (e instanceof Hangup) throw e; }
   }
@@ -855,7 +855,7 @@ async function goodbye() {
   const k = await readKey("YN");
   if (k === "N") return false;
   cls();
-  await art("toilet");
+  await art(S.eliteOk ? "toilet" : "stapler");
   await out("\n|08Time online: |07" + stTime.textContent + "   |08Downloads: |07" + S.user.dl_files + "   |08Uploads: |07" + S.user.ul_files + "\n\n");
   await sleep(1200);
   dropCarrier("|08+++ ATH0");
@@ -894,7 +894,7 @@ async function yourStats() {
     "|07 Downloaded ........ |15" + u.dl_files + " file(s), " + K(u.dl_bytes) + "\n" +
     "|07 U/D ratio ......... |15" + (u.dl_bytes ? (u.ul_bytes / u.dl_bytes).toFixed(2) : u.ul_bytes ? "all up, no down" : "--") + "\n\n" +
     "|07 Download credit ... |14" + K(u.credit_main) + "|07  (earn " + ru.mainRatio + "x what you upload)\n" +
-    (S.eliteOk ? "|07 Cesspool credit ... |13" + K(u.credit_elite) + "|07  (earn " + ru.eliteRatio + "x what you upload there)\n" : "") +
+    (S.eliteOk ? "|07 Septic Tank credit |13" + K(u.credit_elite) + "|07  (earn " + ru.eliteRatio + "x what you upload there)\n" : "") +
     "|07 Max upload ........ |15" + K(ru.maxUpload) + " per file, " + K(ru.dailyUpload) + " per day\n" +
     "|07 Time left ......... |15" + timeLeft() + " minutes\n"
   );
@@ -928,7 +928,7 @@ function bulletinList() {
       "1. Be decent. Lamers, flamers and narcs get deleted without ceremony.",
       "2. No ALL CAPS in the message bases. We can hear you fine.",
       "3. There are only |15" + LINES + "|07 phone line" + (LINES > 1 ? "s" : "") + ". Log off when you're done.",
-      "4. Upload something now and then. Leeches get flushed.",
+      "4. Upload something now and then. Leeches get recycled.",
       "5. No viruses, no trojans, nothing illegal, nothing you don't have the",
       "   right to share. Uploads are checked by hand before they go live.",
     ]],
@@ -945,12 +945,13 @@ function bulletinList() {
       "in a few minutes, or use auto-redial from your terminal's dialing",
       "directory. Calls are capped at " + TIME_MIN + " minutes and idle callers get dropped.",
     ]],
-    ["Septic facts (the SysOp insists)", [
-      "* A septic tank separates waste into three layers: |06scum|07 on top,",
-      "  |03effluent|07 in the middle, and |06sludge|07 on the bottom.",
-      "* Only the middle layer flows out to the leach field.",
-      "* Most households pump the tank every 3 to 5 years.",
-      "* Do not flush floppy disks. You know who you are.",
+    ["Zine facts (the SysOp insists)", [
+      "* A zine is anything self-published with a photocopier, a glue stick",
+      "  and nerve. MEGAzine is one sheet of paper with a QR code on it.",
+      "* The QR code leads to the collection: weird apps, demos, music, paint.",
+      "* New issue every month. Back issues stay up at |11megazine.org|07.",
+      "* Want in? Post in the |14megaZINE Submissions|07 message base.",
+      "* Do not feed the photocopier floppy disks. You know who you are.",
     ]],
   ];
 }
@@ -1278,7 +1279,7 @@ async function download(f, side) {
   const r = await api("download", { id: f.id });
   if (r.ratio === false) {
     await out("\n\n|12 RATIO CHECK FAILED.|07 This file costs |15" + K(r.cost) + "|07 and you have |15" + K(r.credit) + "|07.\n" +
-      (side === "elite" ? " |08Upload something to the Cesspool first, leech. Ratio down here is 1:" + (INFO ? INFO.rules.eliteRatio : 3) + ".\n"
+      (side === "elite" ? " |08Upload something to the Septic Tank first, leech. Ratio down here is 1:" + (INFO ? INFO.rules.eliteRatio : 3) + ".\n"
         : " |08Upload a file and you'll earn " + (INFO ? INFO.rules.mainRatio : 5) + "x its size in credit once it's validated.\n"));
     return anyKey();
   }
@@ -1337,7 +1338,7 @@ async function uploadFile(area, side) {
   cls();
   await out((elite ? "|13" : "|11") + " Upload to " + area.name + "\n" + rule(elite ? 5 : 3) +
     "|07 Max |15" + K(ru.maxUpload) + "|07 per file. Uploads wait for the SysOp to validate them.\n" +
-    " Once approved you earn |15" + (elite ? ru.eliteRatio : ru.mainRatio) + "x|07 the file's size in " + (elite ? "Cesspool" : "download") + " credit.\n" +
+    " Once approved you earn |15" + (elite ? ru.eliteRatio : ru.mainRatio) + "x|07 the file's size in " + (elite ? "Septic Tank" : "download") + " credit.\n" +
     " |08Only upload things you have the right to share. No viruses.\n\n" +
     "|07Description (one line): |15");
   const descr = (await readLine({ max: 50 })).trim();
@@ -1627,7 +1628,7 @@ async function sysopConsole() {
       "|07   {P} Answer a page        " + (pg.rows.length ? "|12" + pg.rows.length + " caller" + (pg.rows.length > 1 ? "s" : "") + " paging!" : "|08nobody paging") + "\n" +
       "|07   {N} New users            " + (nu.rows.length ? "|14" + nu.rows.length + " waiting" : "|08none waiting") + "\n" +
       "|07   {V} Validate uploads     " + (q.rows.length ? "|14" + q.rows.length + " waiting" : "|08queue empty") + "\n" +
-      "|07   {A} Cesspool applications " + (ap.rows.length ? "|14" + ap.rows.length + " open" : "|08none") + "\n" +
+      "|07   {A} Septic Tank apps     " + (ap.rows.length ? "|14" + ap.rows.length + " open" : "|08none") + "\n" +
       "|07   {U} Users\n" +
       "|07   {S} Secret entry (show or change)\n" +
       "|07   {W} Who's online / kick a caller\n" +
@@ -1660,7 +1661,7 @@ async function notifyAdmin() {
     const r = await api("sysop/notify");
     cls();
     await out("|14 Notify me\n" + rule(6) +
-      wrap("|07When new users sign up, files are uploaded or someone applies to the Cesspool, the board posts to Slack and/or Telegram. The first one goes right away; anything else within the hour is bundled into one summary. Pages go right away, but only when you're not on the board. Messages only say how many things are waiting (and who's paging), never passwords or files.") + "\n\n" +
+      wrap("|07When new users sign up, files are uploaded or someone applies to the Septic Tank, the board posts to Slack and/or Telegram. The first one goes right away; anything else within the hour is bundled into one summary. Pages go right away, but only when you're not on the board. Messages only say how many things are waiting (and who's paging), never passwords or files.") + "\n\n" +
       "|07 Slack     " + (r.slackOn ? "|10ON" : "|08off") + "\n" +
       "|07 Telegram  " + (r.tgOn ? "|10ON|07 via @" + esc(r.bot) : r.hasToken ? "|14half set up|07 (bot @" + esc(r.bot) + ")" : "|08off") + "\n\n" +
       "|07   {S} Slack setup   {G} Telegram setup" + (r.slackOn || r.tgOn ? "   {T} Send a test" : "") + "   {Q} Back\n\n|08Command: |07");
@@ -1675,9 +1676,9 @@ async function slackSetup(r) {
   cls();
   await out("|14 Slack\n" + rule(6) +
     "|07 1. Go to |15api.slack.com/apps|07 > |15Create New App|07 > |15From scratch|07. Name it\n" +
-    "|07    \"Septic Tankz\" and pick your workspace.\n" +
+    "|07    \"MEGAzine BBS\" and pick your workspace.\n" +
     "|07 2. Under |15Incoming Webhooks|07, switch it on, then |15Add New Webhook|07. Pick a\n" +
-    "|07    channel (a private one like #septic-tankz is good) and allow it.\n" +
+    "|07    channel (a private one like #megazine-bbs is good) and allow it.\n" +
     "|07 3. Copy the webhook URL (https://hooks.slack.com/services/...) and paste it\n" +
     "|07    below. The board posts a hello to check it.\n" +
     "|07 4. In Slack, set that channel's notifications to |15All new messages|07 so your\n" +
@@ -1742,14 +1743,14 @@ async function newUsersAdmin() {
       "|07 From ......... |15" + esc(u.location || "(didn't say)") + "\n" +
       "|07 Signed up .... |15" + d8(u.created_at) + " " + hm(u.created_at) + "|07, " + u.calls + " call" + (u.calls === 1 ? "" : "s") + " so far\n" + rule(8) +
       "|07 " + (u.app ? wrap(u.app, 76).split("\n").map(esc).join("\n|07 ") : "|08(no application answers)") + "\n" + rule(8) +
-      "|07{V} Validate  {D} Delete account  {S} Skip  {F} Flush all  {Q} Quit |15");
+      "|07{V} Validate  {D} Delete account  {S} Skip  {F} Shred all  {Q} Quit |15");
     const k = await readKey("VDSFQ");
     if (k === "Q") return;
     if (k === "F") {
       await out("\n|12Delete all " + rows.length + " waiting accounts for good? {Y} Yes  {N} No |15");
       if ((await readKey("YN")) === "N") { i--; continue; }
       const r = await api("sysop/purgenew");
-      await out("\n|12Flushed " + r.flushed + " account" + (r.flushed === 1 ? "" : "s") + ".\n"); await anyKey();
+      await out("\n|12Shredded " + r.flushed + " account" + (r.flushed === 1 ? "" : "s") + ".\n"); await anyKey();
       return;
     }
     if (k === "S") continue;
@@ -1757,7 +1758,7 @@ async function newUsersAdmin() {
       await out("\n|12Delete " + esc(u.handle) + " for good? {Y} Yes  {N} No |15");
       if ((await readKey("YN")) === "N") continue;
       await api("sysop/validateuser", { id: u.id, approve: false });
-      await out("\n|12Flushed.\n");
+      await out("\n|12Shredded.\n");
     } else {
       const r = await api("sysop/validateuser", { id: u.id, approve: true });
       await out("\n|10Validated. |14" + esc(u.handle) + "|10 got " + K(r.credited) + " of credit and an e-mail.\n");
@@ -1773,7 +1774,7 @@ async function validateQueue() {
     cls();
     await out("|14 Validate " + (i + 1) + " of " + q.length + "\n" + rule(6) +
       "|07 File ......... |15" + esc(f.filename) + "\n" +
-      "|07 Area ......... |15" + esc(f.area) + (f.side === "elite" ? " |13(Cesspool)" : "") + "\n" +
+      "|07 Area ......... |15" + esc(f.area) + (f.side === "elite" ? " |13(Septic Tank)" : "") + "\n" +
       "|07 Size ......... |15" + K(f.size) + "\n" +
       "|07 Uploader ..... |14" + esc(f.uploader) + "|07 on " + d8(f.uploaded_at) + " " + hm(f.uploaded_at) + "\n" +
       "|07 Description .. |15" + esc(f.descr) + "\n\n" +
@@ -1788,7 +1789,7 @@ async function validateQueue() {
     }
     if (k === "Q") return;
     if (k === "S") continue;
-    if (k === "R") { await api("sysop/validate", { id: f.id, action: "reject" }); await out("\n|12Flushed.\n"); }
+    if (k === "R") { await api("sysop/validate", { id: f.id, action: "reject" }); await out("\n|12Rejected.\n"); }
     else {
       const r = await api("sysop/validate", { id: f.id, action: "approve", free: k === "F" });
       await out("\n|10Approved. |14" + esc(r.uploader) + "|10 earned " + K(r.credited) + " of credit.\n");
@@ -1801,7 +1802,7 @@ async function applications() {
   const rows = (await api("sysop/apps")).rows;
   for (const a of rows) {
     cls();
-    await out("|13 Cesspool application\n" + rule(5) +
+    await out("|13 Septic Tank application\n" + rule(5) +
       "|07 Handle ... |14" + esc(a.handle) + "|07   calls " + a.calls + ", uploads " + a.ul_files + ", applied " + d8(a.at) + "\n" + rule(8) +
       "|07 " + wrap(a.text, 76).split("\n").map(esc).join("\n|07 ") + "\n" + rule(8) +
       "|07{A} Approve  {D} Deny  {S} Skip  {Q} Quit |15");
@@ -1832,8 +1833,8 @@ async function usersAdmin() {
     if (k === "N") { page = (page + 1) % pages; continue; }
     if (k === "P") { page = (page + pages - 1) % pages; continue; }
     const u = sl[+k - 1];
-    await out("\n\n|14" + esc(u.handle) + ": |07{E} " + (u.elite ? "Revoke" : "Grant") + " Cesspool  {B} " + (u.banned ? "Unban" : "Ban") +
-      "  {C} Add main credit  {X} Add Cesspool credit  {Q} Back |15");
+    await out("\n\n|14" + esc(u.handle) + ": |07{E} " + (u.elite ? "Revoke" : "Grant") + " Septic Tank  {B} " + (u.banned ? "Unban" : "Ban") +
+      "  {C} Add main credit  {X} Add Tank credit  {Q} Back |15");
     const a = await readKey("EBCXQ");
     if (a === "E") await api("sysop/setuser", { id: u.id, elite: !u.elite });
     if (a === "B") await api("sysop/setuser", { id: u.id, banned: !u.banned });
@@ -1848,9 +1849,9 @@ async function secretAdmin() {
   const cur = await api("sysop/secret", {});
   cls();
   await out("|14 Secret entry\n" + rule(6) +
-    "|07 At the normal login prompt, this handle and password open the door to\n the Cesspool's login screen:\n\n" +
+    "|07 At the normal login prompt, this handle and password open the door to\n the Septic Tank's login screen:\n\n" +
     "|07   Handle ..... |13" + esc(cur.word) + "\n|07   Password ... |13" + esc(cur.pass) + "\n\n" +
-    "|08 Only users with Cesspool access (you grant it) can log in past that door.\n\n" +
+    "|08 Only users with Septic Tank access (you grant it) can log in past that door.\n\n" +
     "|07{C} Change it  {Q} Back |15");
   if ((await readKey("CQ")) === "Q") return;
   await out("\n|07New secret handle: |15");
@@ -1864,7 +1865,7 @@ async function secretAdmin() {
 async function phoneLinesAdmin() {
   cls();
   await out("|14 Phone lines\n" + rule(6) +
-    "|07 The Septic Tankz has |15" + LINES + "|07 line" + (LINES > 1 ? "s" : "") + " in its hunt group. Callers who find line 1\n" +
+    "|07 MEGAzine BBS has |15" + LINES + "|07 line" + (LINES > 1 ? "s" : "") + " in its hunt group. Callers who find line 1\n" +
     " busy roll over to the next free line. Each extra line means one more caller\n online at a time (and more people in the Teleconference).\n\n" +
     "|07 How many lines do you want? |08(1-8)|07 |15");
   const n = parseInt(await readLine({ max: 1 }), 10);
@@ -1876,7 +1877,7 @@ async function phoneLinesAdmin() {
     for (let i = 0; i < 4; i++) { await sleep(350); await out("|08."); }
     await out("\n|08A guy in a van shows up three to five business days later");
     for (let i = 0; i < 4; i++) { await sleep(350); await out("|08."); }
-    await out("\n|10*** " + (r.lines - was) + " new line" + (r.lines - was > 1 ? "s" : "") + " installed. The Septic Tankz is now a " + r.lines + "-line board. ***\n");
+    await out("\n|10*** " + (r.lines - was) + " new line" + (r.lines - was > 1 ? "s" : "") + " installed. MEGAzine BBS is now a " + r.lines + "-line board. ***\n");
     if (A.ready()) A.tone([350, 440], 0, 0.6, 0.3);
   } else {
     await out("\n|12*** Line" + (was - r.lines > 1 ? "s " + (r.lines + 1) + "-" + was : " " + was) + " disconnected.|07 Anyone on " + (was - r.lines > 1 ? "them" : "it") + " finishes their call. Now " + r.lines + " line" + (r.lines > 1 ? "s" : "") + ".\n");
@@ -1898,7 +1899,7 @@ async function kickAdmin() {
   await out("\n|10Node " + k + " hung up.\n"); await sleep(600);
 }
 
-// ================================================================= THE CESSPOOL
+// ================================================================= THE SEPTIC TANK (elite side)
 async function cesspoolGate() {
   act("Logging in");
   await out("\n|08Verifying");
@@ -1907,7 +1908,7 @@ async function cesspoolGate() {
   for (let i = 0; i < 12; i++) await out("|0" + (i % 2 ? 5 : 4) + "#".repeat(10 + ((i * 37) % 60)) + "\n");
   cls();
   await art("logo_elite");
-  await out("\n|05 the cesspool |08// |13members only|08. one wrong answer and you're off the line.\n\n|05 handle: |15");
+  await out("\n|05 the septic tank |08// |13members only|08. one wrong answer and you're off the line.\n\n|05 handle: |15");
   const handle = (await readLine({ max: 30 })).trim();
   await out("|05 passwd: ");
   const password = await readLine({ max: 64, mask: true });
@@ -1936,6 +1937,7 @@ async function cesspool() {
   await art("logo_elite");
   await out("\n|13      ACCESS GRANTED |08:: |12NODE " + myNode + " |08:: |05welcome to the bottom of the tank, |15" + esc(S.user.handle) + "\n");
   await out("|08      ratio 1:" + (INFO ? INFO.rules.eliteRatio : 3) + " |05:: |08no lamers |05:: |08no narcs |05:: |08no viruses\n\n");
+  await art("tank");
   if (S.unread) await out("|14      You have " + S.unread + " new e-mail.\n");
   await sleep(700);
   while (true) {
@@ -1943,7 +1945,7 @@ async function cesspool() {
     cls();
     const u = S.user;
     await out(
-      "|05.--=[ |13THE CESSPOOL |05]=---------------------------------------------=[ |13ELiTE |05]=--.\n\n" +
+      "|05.--=[ |13THE SEPTIC TANK |05]=------------------------------------------=[ |13ELiTE |05]=--.\n\n" +
       "|07   {F} File Areas             {M} Message Bases        {E} E-mail" + (S.unread ? " |14(" + S.unread + ")" : "") + "\n" +
       "|07   {C} Top Couriers           {L} Last Callers         {W} Who's Online\n" +
       "|07   {T} Teleconference         {Y} Your Stats           {X} Back to the lamer side\n" +
@@ -1956,7 +1958,7 @@ async function cesspool() {
     else if (k === "M") await guard(() => messageBases("elite"));
     else if (k === "E") await guard(email);
     else if (k === "C") await guard(couriers);
-    else if (k === "T") await guard(() => chatRoom("pool", "Cesspool Teleconference"));
+    else if (k === "T") await guard(() => chatRoom("pool", "Septic Tank Teleconference"));
     else if (k === "L") await guard(() => lastCallers("elite"));
     else if (k === "W") await guard(whoScreen);
     else if (k === "Y") await guard(yourStats);

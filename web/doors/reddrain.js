@@ -60,7 +60,7 @@
       await out(" " + left + " ".repeat(Math.max(1, 48 - vis)) + (i % 2 ? "|04" : "|12") + SWIRL[i] + "\n");
     }
     await out("\n|07   A game of plumbing, peril and poor decisions.   |08One world, everyone in it.\n" +
-      "|08   Door by The SysOp for The Septic Tankz.\n\n");
+      "|08   Door by The SysOp for MEGAzine BBS.\n\n");
   }
 
   async function notices(rows) {

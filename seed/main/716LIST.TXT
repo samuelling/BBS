@@ -2,7 +2,7 @@
        T H E   7 1 6   L I S T   ::   boards worth calling, updated monthly
      in the tradition of Logan's List, which was on every board in Rochester
 ===============================================================================
- Compiled by the SysOp of The Septic Tankz.  Last update: October 2026.
+ Compiled by the SysOp of MEGAzine BBS.  Last update: October 2026.
  Want your board on the list, or one's gone dead?  Leave the SysOp a comment.
 
  KEY:  Nodes = how many callers at once.  "telnet" = no modem needed, point a
@@ -11,11 +11,12 @@
 -------------------------------------------------------------------------------
  WESTERN NEW YORK (716 / 585)
 -------------------------------------------------------------------------------
- THE SEPTIC TANKZ ......................................... 1-716-555-2455
+ MEGAZINE BBS ............................................. 1-716-555-2455
    Speeds: 300 to 56k, or Ethernet.   Nodes: 1 (or 2 when the SysOp feels
    fancy).   Software: homegrown.   Messages, files with ratios (1:5 main),
    door games: Usurper, Red Drain, Trade Wipes 2002, Zork, Colossal Cave.
-   Elite side if you know where to knock.   Validation required.
+   The zine's home board: submissions, back issues. Elite side (the
+   Septic Tank) if you know where to knock.   Validation required.
    You are here.
 
  SILICON UNDERGROUND ........................ telnet  siliconu.com

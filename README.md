@@ -1,4 +1,7 @@
-# The Septic Tankz
+# MEGAzine BBS
+
+The home board of megaZINE (megazine.org), formerly The Septic Tankz. The septic humor now
+lives down in the elite side, the Septic Tank.
 
 A real dial-up style BBS that runs in the browser. Callers dial in through a
 virtual modem, make an account, post in message bases, send each other e-mail,
@@ -6,7 +9,7 @@ and trade files under an upload/download ratio. There are only a few phone
 lines (one by default): while they're all in use, everyone else gets a busy
 signal.
 
-Behind a secret login sits **The Cesspool**, an elite side with its own file
+Behind a secret login sits **The Septic Tank**, an elite side with its own file
 areas, message bases and a stricter ratio. Only users the SysOp lets in can get
 past its door.
 
@@ -25,36 +28,36 @@ past its door.
   handshake song and `CONNECT` string, and screens and transfer meters run at that speed (tap to fast-forward).
   Ethernet skips the modem and connects like telnet. The choice is remembered per browser.
 - Bulletins and a whole wall of door games (see below)
-- **Teleconference**: a live group chat room for everyone online (the Cesspool has its own)
+- **Teleconference**: a live group chat room for everyone online (the Septic Tank has its own)
 - **Page the SysOp**: callers page you, your status bar flashes and beeps, and you answer into a live one-on-one chat
 - Text, NFO and ANSI files can be read on-line for free, and ANSI art renders in color
 - Free disk space shows at login, like a real board
 
-**The Cesspool**
+**The Septic Tank**
 - Reached by typing the secret handle and password at the normal login prompt,
-  then logging in with an account that has Cesspool access
+  then logging in with an account that has Septic Tank access
 - Users without access can apply. Applications land in the SysOp console.
 - Separate file areas, message bases, last callers and a Top Couriers chart
 
 **Ratios**
 - New users get 2,048K of main-board credit once the SysOp validates them
 - Main board: every byte uploaded earns 5 bytes of download credit (1:5)
-- The Cesspool: 1:3 and no starting credit
+- The Septic Tank: 1:3 and no starting credit
 - Credit is granted when the SysOp validates an upload, not before
 - The SysOp can mark files FREE; downloading those costs nothing
 
 **SysOp console** (`[!]` on the menus, SysOp only)
 - Validate new users: read their sign-up answers, then validate (full access plus starting credit) or delete
 - Validate uploads: approve, approve as free, reject, or download to inspect first
-- Approve or deny Cesspool applications (the applicant gets an e-mail)
-- Users: grant or revoke Cesspool access, ban, adjust credit
+- Approve or deny Septic Tank applications (the applicant gets an e-mail)
+- Users: grant or revoke Septic Tank access, ban, adjust credit
 - Change the secret entry handle and password
 - Kick a caller off a line
 - Phone lines: run a 1- to 8-line board. Callers who find line 1 busy roll over to the next free line
 - Open enrollment: a switch (`{E}`) that lets new callers in without validation (they get the
   starting credit right away). It's on for now; the SysOp still gets a Slack/Telegram ping per sign-up.
 - Notify me: posts to a Slack channel (incoming webhook) and/or a Telegram bot when new users,
-  uploads or Cesspool applications are waiting (the first right away, the rest bundled at most hourly
+  uploads or Septic Tank applications are waiting (the first right away, the rest bundled at most hourly
   by a 15-minute cron), and when a caller pages while you're off the board. The console walks you
   through making the Slack webhook or the Telegram bot.
 
@@ -196,7 +199,7 @@ MIDI files were unlicensed covers of pop songs.
 - ANSI & Graphics: six original ACiD, iCE and Fire art packs (1994-96) and 14 single
   pieces you can view on-line, all from 16colo.rs. See ANSI.NFO.
 - Demos: eight classic PC demos from scene.org (Second Reality, Unreal, Crystal Dream 2,
-  HeartQuake, Verses, Stars, Dope, Juice) in the Cesspool's Demos & Intros, with three of
+  HeartQuake, Verses, Stars, Dope, Juice) in the Septic Tank's Demos & Intros, with three of
   them in Miscellaneous. DEMOS.NFO says how to run them in DOSBox.
 - Text Files: nine BBS-culture t-files from textfiles.com. See TFILES.NFO.
 
@@ -246,7 +249,7 @@ In `wrangler.jsonc` under `vars`:
 | `STORAGE_QUOTA_MB` | 900 | Board-wide storage cap (0 = none) |
 | `DAILY_UPLOAD_MB` | 200 | Per-user upload allowance per 24 hours |
 | `MAIN_RATIO` | 5 | Credit earned per byte uploaded on the main board |
-| `ELITE_RATIO` | 3 | Credit earned per byte uploaded in the Cesspool |
+| `ELITE_RATIO` | 3 | Credit earned per byte uploaded in the Septic Tank |
 | `START_CREDIT_KB` | 2048 | Main-board credit for new users |
 
 ## Running it locally
