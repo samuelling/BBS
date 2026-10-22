@@ -1905,8 +1905,12 @@ async function usersAdmin() {
     if (k === "P") { page = (page + pages - 1) % pages; continue; }
     const u = sl[+k - 1];
     await out("\n\n|14" + esc(u.handle) + ": |07{E} " + (u.elite ? "Revoke" : "Grant") + " Septic Tank  {B} " + (u.banned ? "Unban" : "Ban") +
-      "  {C} Add main credit  {X} Add Tank credit  {Q} Back |15");
-    const a = await readKey("EBCXQ");
+      "  {C} Add main credit\n|07   {X} Add Tank credit  {S} " + (u.sysop ? "Remove co-SysOp" : "Make co-SysOp") + "  {Q} Back |15");
+    const a = await readKey("EBCXSQ");
+    if (a === "S") {
+      await out("\n|12" + (u.sysop ? "Take away " + esc(u.handle) + "'s SysOp powers?" : "Give " + esc(u.handle) + " full SysOp powers (validation, users, lines, everything)?") + " {Y} Yes  {N} No |15");
+      if ((await readKey("YN")) === "Y") { await api("sysop/setuser", { id: u.id, level: u.sysop ? 10 : 255 }); await out("\n|10Done.|07\n"); await sleep(700); }
+    }
     if (a === "E") await api("sysop/setuser", { id: u.id, elite: !u.elite });
     if (a === "B") await api("sysop/setuser", { id: u.id, banned: !u.banned });
     if (a === "C" || a === "X") {

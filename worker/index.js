@@ -691,6 +691,9 @@ async function route(path, req, env) {
       const u = await db.prepare("SELECT * FROM users WHERE id = ?").bind(+body.id).first();
       if (!u) throw new BoardError("No such user.");
       if (u.id === user.id && (body.banned || body.level !== undefined)) throw new BoardError("You can't do that to yourself.");
+      // The board's founding SysOp (the first account) can't be demoted or banned by a co-SysOp.
+      const founder = await db.prepare("SELECT MIN(id) id FROM users").first();
+      if (u.id === founder.id && user.id !== founder.id && (body.banned || body.level !== undefined)) throw new BoardError("That's the founding SysOp. Nice try.");
       const elite = body.elite === undefined ? u.elite : (body.elite ? 1 : 0);
       const banned = body.banned === undefined ? u.banned : (body.banned ? 1 : 0);
       const level = body.level === undefined ? u.level : Math.max(0, Math.min(255, +body.level || 10));

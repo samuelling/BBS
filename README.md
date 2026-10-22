@@ -54,6 +54,8 @@ past its door.
 - Change the secret entry handle and password
 - Kick a caller off a line
 - Phone lines: run a 1- to 8-line board. Callers who find line 1 busy roll over to the next free line
+- Co-SysOps: in Users, `{S}` gives another account full SysOp powers or takes them away. Wiz (Matt)
+  is co-SysOp. Nobody but the founding SysOp (the first account) can demote or ban the founding SysOp.
 - Open enrollment: a switch (`{E}`) that lets new callers in without validation (they get the
   starting credit right away). It's on for now; the SysOp still gets a Slack/Telegram ping per sign-up.
 - Notify me: posts to a Slack channel (incoming webhook) and/or a Telegram bot when new users,
